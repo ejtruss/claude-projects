@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quiz Night</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>* { box-sizing: border-box; margin: 0; padding: 0; } body { background: #080810; }</style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel" data-presets="react">
+const { useState, useRef, useEffect, useCallback } = React;
+
+const TEAM_COLORS = [
+  { main: '#FF3D6B', glow: 'rgba(255,61,107,0.3)', dim: 'rgba(255,61,107,0.12)' },
+  { main: '#00D4FF', glow: 'rgba(0,212,255,0.3)', dim: 'rgba(0,212,255,0.12)' },
+  { main: '#FFD200', glow: 'rgba(255,210,0,0.3)', dim: 'rgba(255,210,0,0.12)' },
+  { main: '#7CFF6B', glow: 'rgba(124,255,107,0.3)', dim: 'rgba(124,255,107,0.12)' },
+];
+
+function tc(i) { return TEAM_COLORS[i % TEAM_COLORS.length]; }
+
+function fuzzy(input, target) {
+
+  const stopWords = /^(the|fc|cf|city|united|county|state|university|of|and|a|an)$/;
+  const norm = s => s.toLowerCase().trim()
+    .replace(/[^a-z0-9 ]/g, '')
+    .split(' ').filter(w => w && !stopWords.test(w)).join('');
+  const a = norm(input), b = norm(target);
+  if (!a) return false;
+  if (a === b) return true;
+
+  if (b.includes(a) && a.length >= 3) return true;
+  if (a.includes(b) && b.length >= 3) return true;
+
+  const maxDist = b.length <= 5 ? 1 : b.length <= 9 ? 2 : 3;
+  if (Math.abs(a.length - b.length) > maxDist) return false;
+
+  const dp = Array.from({length: a.length + 1}, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 0; j <= b.length; j++) dp[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1]
+        : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+    }
+  }
+  return dp[a.length][b.length] <= maxDist;
+}
+
+const AudioCtx = typeof window !== 'undefined' ? (window.AudioContext || window.webkitAudioContext) : null;
+let _actx = null;
+let _muted = false;
+
+function getCtx() {
+  if (!AudioCtx) return null;
+  if (!_actx) _actx = new AudioCtx();
+  if (_actx.state === 'suspended') _actx.resume();
+  return _actx;
+}
+
+function setMuted(m) { _muted = m; }
+
+function playTone({ freq = 440, type = 'sine', gain = 0.4, attack = 0.01, decay = 0.1, sustain = 0.0, release = 0.3, duration = 0.4, detune = 0 } = {}) {
+  if (_muted) return;
+  const ctx = getCtx(); if (!ctx) return;
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const env = ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, now);
+  osc.detune.setValueAtTime(detune, now);
+  env.gain.setValueAtTime(0, now);
+  env.gain.linearRampToValueAtTime(gain, now + attack);
+  env.gain.linearRampToValueAtTime(gain * sustain || gain * 0.6, now + attack + decay);
+  env.gain.linearRampToValueAtTime(0, now + duration + release);
+  osc.connect(env); env.connect(ctx.destination);
+  osc.start(now); osc.stop(now + duration + release + 0.05);
+}
+
+function playNoise({ gain = 0.15, duration = 0.12, freq = 200, q = 1 } = {}) {
+  if (_muted) return;
+  const ctx = getCtx(); if (!ctx) return;
+  const buf = ctx.createBuffer(1, ctx.sampleRate * duration, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'bandpass'; filter.frequency.value = freq; filter.Q.value = q;
+  const env = ctx.createGain();
+  const now = ctx.currentTime;
+  env.gain.setValueAtTime(gain, now);
+  env.gain.exponentialRampToValueAtTime(0.001, now + duration);
+  src.connect(filter); filter.connect(env); env.connect(ctx.destination);
+  src.start(now); src.stop(now + duration + 0.05);
+}
+
+const SFX = {
+  introSlam() {
+  if (_muted) return;
+  const ctx = getCtx(); if (!ctx) return;
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const env = ctx.createGain();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(80, now);
+  osc.frequency.exponentialRampToValueAtTime(600, now + 0.35);
+  env.gain.setValueAtTime(0, now);
+  env.gain.linearRampToValueAtTime(0.35, now + 0.05);
+  env.gain.linearRampToValueAtTime(0, now + 0.4);
+  osc.connect(env); env.connect(ctx.destination);
+  osc.start(now); osc.stop(now + 0.45);
+  setTimeout(() => {
+    playNoise({ gain: 0.5, duration: 0.25, freq: 120, q: 0.8 });
+    playTone({ freq: 90, type: 'sine', gain: 0.6, attack: 0.005, decay: 0.15, release: 0.25, duration: 0.05 });
+  }, 330);
+  setTimeout(() => {
+    [261, 329, 392, 523].forEach((f, i) => {
+    playTone({ freq: f, type: 'triangle', gain: 0.18, attack: 0.01, decay: 0.08, release: 0.5, duration: 0.1, detune: i * 2 });
+    });
+  }, 420);
+  },
+  correct() {
+  [523, 659, 784].forEach((f, i) => {
+    setTimeout(() => playTone({ freq: f, type: 'sine', gain: 0.3, attack: 0.01, decay: 0.05, release: 0.35, duration: 0.05 }), i * 55);
+  });
+  },
+  tilePop() {
+  playTone({ freq: 880, type: 'sine', gain: 0.2, attack: 0.005, decay: 0.04, release: 0.18, duration: 0.02 });
+  },
+  wrong() {
+  playTone({ freq: 180, type: 'sawtooth', gain: 0.35, attack: 0.005, decay: 0.05, release: 0.22, duration: 0.18 });
+  setTimeout(() => playTone({ freq: 140, type: 'sawtooth', gain: 0.25, attack: 0.005, decay: 0.04, release: 0.2, duration: 0.15 }), 120);
+  },
+  eliminated() {
+  [220, 185, 155, 110].forEach((f, i) => {
+    setTimeout(() => playTone({ freq: f, type: 'sawtooth', gain: 0.22, attack: 0.01, decay: 0.08, release: 0.3, duration: 0.1 }), i * 90);
+  });
+  },
+  winner() {
+  if (_muted) return;
+  const ctx = getCtx(); if (!ctx) return;
+  const melody = [523, 523, 523, 659, 523, 659, 784];
+  const times =  [0,   0.18, 0.36, 0.54, 0.72, 0.82, 0.92];
+  melody.forEach((f, i) => {
+    setTimeout(() => playTone({ freq: f, type: 'triangle', gain: 0.28, attack: 0.01, decay: 0.06, release: 0.3, duration: 0.1 }), times[i] * 1000);
+  });
+  [130, 130, 196].forEach((f, i) => {
+    setTimeout(() => playTone({ freq: f, type: 'sine', gain: 0.4, attack: 0.01, decay: 0.12, release: 0.35, duration: 0.08 }), [0, 360, 920][i]);
+  });
+  },
+  nextQ() {
+  playTone({ freq: 300, type: 'sine', gain: 0.12, attack: 0.005, decay: 0.04, release: 0.1, duration: 0.02 });
+  },
+  point() {
+  playTone({ freq: 660, type: 'sine', gain: 0.2, attack: 0.005, decay: 0.03, release: 0.2, duration: 0.02 });
+  setTimeout(() => playTone({ freq: 880, type: 'sine', gain: 0.15, attack: 0.005, decay: 0.03, release: 0.18, duration: 0.02 }), 60);
+  },
+  slotTick() {
+  playTone({ freq: 400 + Math.random()*180, type:'square', gain:0.07, attack:0.002, decay:0.02, release:0.04, duration:0.01 });
+  },
+  slotLand() {
+  playNoise({ gain:0.3, duration:0.18, freq:150, q:1.2 });
+  playTone({ freq:110, type:'sine', gain:0.4, attack:0.005, decay:0.12, release:0.3, duration:0.05 });
+  setTimeout(() => [330,415,523].forEach((f,i) => setTimeout(() =>
+    playTone({ freq:f, type:'triangle', gain:0.2, attack:0.01, decay:0.06, release:0.4, duration:0.08 }), i*70)), 120);
+  },
+  bigWrong() {
+  playTone({ freq:160, type:'sawtooth', gain:0.45, attack:0.005, decay:0.08, release:0.35, duration:0.3 });
+  setTimeout(() => playTone({ freq:120, type:'sawtooth', gain:0.35, attack:0.005, decay:0.06, release:0.3, duration:0.25 }), 180);
+  setTimeout(() => playNoise({ gain:0.25, duration:0.18, freq:100, q:0.8 }), 60);
+  },
+  threeStrikes() {
+  [200,160,120,90].forEach((f,i) => setTimeout(() => {
+    playTone({ freq:f, type:'sawtooth', gain:0.38, attack:0.005, decay:0.1, release:0.35, duration:0.15 });
+    playNoise({ gain:0.18, duration:0.14, freq:f*0.8, q:0.6 });
+  }, i*130));
+  },
+  stealTension() {
+  [180,220,260,300].forEach((f,i) => setTimeout(() =>
+    playTone({ freq:f, type:'sine', gain:0.16, attack:0.08, decay:0.1, release:0.4, duration:0.15 }), i*180));
+  },
+  stealSuccess() {
+  [392,523,659,784,1047].forEach((f,i) => setTimeout(() =>
+    playTone({ freq:f, type:'triangle', gain:0.28, attack:0.01, decay:0.05, release:0.4, duration:0.08 }), i*80));
+  setTimeout(() => playNoise({ gain:0.2, duration:0.18, freq:200, q:1 }), 40);
+  },
+  stealMiss() {
+  [330,277,247,220].forEach((f,i) => setTimeout(() =>
+    playTone({ freq:f, type:'sawtooth', gain:0.22, attack:0.02, decay:0.08, release:0.3, duration:0.15 }), i*140));
+  },
+};
+
+// ── Replace this URL with your Cloudflare Worker URL after setup ──
+const WORKER_URL = "https://crimson-mode-5ecf.trussej.workers.dev/";
+
+async function callClaude(prompt) {
+  const res = await fetch(WORKER_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-5",
+      max_tokens: 2000,
+      messages: [{ role: "user", content: prompt }]
+    })
+  });
+  if (!res.ok) { const t = await res.text(); throw new Error(`API ${res.status}: ${t}`); }
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
+  const raw = data.content.map(b => b.text || "").join("");
+  const match = raw.replace(/```json|```/g, "").trim().match(/\[[\s\S]*\]/);
+  if (!match) throw new Error("No JSON array in response");
+  return match[0];
+}
+
+const MECHANIC_LABELS = { qa: "Q & A", sporcle: "Sporcle Round", tf: "True or False", feud: "Family Feud" };
+const DEFAULT_CATS = [
+  { id: 1, name: "Pop Culture", mechanic: "qa", count: 8 },
+  { id: 2, name: "NBA Teams", mechanic: "sporcle", count: 30 },
+];
+
+const css = `@import url('https://fonts.googleapis.com/css2?family=Anton&family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap');*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}:root{--bg:#080810;--surface:#0e0e1a;--border:rgba(255,255,255,0.07);--text:#f0eee8;--muted:rgba(240,238,232,0.4);--font-d:'Anton',sans-serif;--font-ui:'Barlow',sans-serif;--font-c:'Barlow Condensed',sans-serif;}body{background:var(--bg);font-family:var(--font-ui);color:var(--text);}.wrap{min-height:100vh;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;position:relative;overflow:hidden;}.wrap::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:100;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.06) 2px,rgba(0,0,0,0.06) 4px);}.setup-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:44px;width:100%;max-width:700px;z-index:1;position:relative;}.brand{font-family:var(--font-d);font-size:52px;letter-spacing:4px;line-height:1;margin-bottom:4px;background:linear-gradient(135deg,#FF3D6B,#FFD200);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}.brand-sub{font-family:var(--font-c);font-size:12px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);margin-bottom:40px;}.sec-label{font-family:var(--font-c);font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;}.teams-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:28px;}.team-input-wrap{position:relative;display:flex;align-items:center;}.team-dot{position:absolute;left:14px;width:9px;height:9px;border-radius:50%;}.team-input{width:100%;background:#0a0a14;border:1px solid var(--border);border-radius:10px;padding:12px 12px 12px 34px;color:var(--text);font-family:var(--font-c);font-size:15px;font-weight:600;letter-spacing:1px;outline:none;transition:border-color 0.2s;}.team-input::placeholder{color:rgba(240,238,232,0.2);font-weight:400;}.add-team-btn{grid-column:span 2;padding:11px;background:transparent;border:1px dashed rgba(255,255,255,0.1);border-radius:10px;color:var(--muted);font-family:var(--font-c);font-size:13px;letter-spacing:2px;cursor:pointer;transition:all 0.15s;}.add-team-btn:hover{border-color:rgba(255,255,255,0.3);color:var(--text);}.divider{border:none;border-top:1px solid var(--border);margin:0 0 24px;}.cat-list{display:flex;flex-direction:column;gap:10px;margin-bottom:18px;}.cat-row{background:#0a0a14;border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:grid;grid-template-columns:1fr auto auto auto;gap:10px;align-items:center;}.cat-input{background:transparent;border:none;outline:none;color:var(--text);font-family:var(--font-c);font-size:15px;font-weight:600;width:100%;}.cat-input::placeholder{color:rgba(240,238,232,0.2);font-weight:400;}.cat-select{background:#0a0a14;border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:6px 24px 6px 10px;color:var(--text);font-family:var(--font-c);font-size:13px;outline:none;cursor:pointer}.cat-select:focus{border-color:rgba(255,255,255,0.35)}.cat-select option{background:#0e0e1a;color:var(--text)}.cat-num{background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-family:var(--font-c);font-size:13px;width:54px;outline:none;text-align:center;}.cat-del{background:transparent;border:none;color:rgba(255,255,255,0.2);font-size:18px;cursor:pointer;padding:3px 7px;border-radius:4px;transition:all 0.15s;line-height:1;}.cat-del:hover{color:#FF3D6B;background:rgba(255,61,107,0.1);}.add-cat-btn{width:100%;padding:11px;background:transparent;border:1px dashed rgba(255,255,255,0.08);border-radius:10px;color:var(--muted);font-family:var(--font-c);font-size:12px;letter-spacing:2px;cursor:pointer;transition:all 0.15s;margin-bottom:28px;text-transform:uppercase;}.add-cat-btn:hover{border-color:rgba(255,255,255,0.22);color:var(--text);}.start-btn{width:100%;padding:19px;background:linear-gradient(135deg,#FF3D6B,#FF8C00);border:none;border-radius:12px;font-family:var(--font-d);font-size:26px;letter-spacing:4px;color:white;cursor:pointer;transition:all 0.2s;box-shadow:0 0 40px rgba(255,61,107,0.25);}.start-btn:hover{transform:translateY(-2px);box-shadow:0 0 60px rgba(255,61,107,0.45);}.start-btn:disabled{opacity:0.3;cursor:not-allowed;transform:none;box-shadow:none;}.err{color:#FF3D6B;font-family:var(--font-c);font-size:13px;letter-spacing:1px;margin-bottom:12px;}}50%{opacity:1}}.intro-screen{text-align:center;position:relative;z-index:1;}.intro-screen.slam{animation:introSlam 0.5s cubic-bezier(0.2,1.4,0.4,1) both;}@keyframes introSlam{0%{opacity:0;transform:translateY(-60px) scale(1.15)}60%{opacity:1;transform:translateY(4px) scale(0.98)}80%{transform:translateY(-2px) scale(1.01)}100%{transform:translateY(0) scale(1)}}.intro-title.slam{animation:titleSlam 0.45s cubic-bezier(0.15,1.5,0.4,1) 0.1s both;}@keyframes titleSlam{0%{opacity:0;transform:scale(1.4) translateY(-20px)}100%{opacity:1;transform:scale(1) translateY(0)}}.slam-flash{position:fixed;inset:0;background:white;pointer-events:none;z-index:500;animation:flashOut 0.4s ease 0.35s both;}@keyframes flashOut{0%{opacity:0.6}100%{opacity:0}}.intro-round-lbl{font-family:var(--font-c);font-size:13px;letter-spacing:5px;text-transform:uppercase;color:var(--muted);margin-bottom:14px;}.intro-title{font-family:var(--font-d);font-size:clamp(48px,8vw,92px);letter-spacing:3px;line-height:1;margin-bottom:18px;text-transform:uppercase;}.intro-badge{display:inline-block;font-family:var(--font-c);font-size:13px;letter-spacing:3px;text-transform:uppercase;padding:7px 18px;border-radius:100px;border:1px solid rgba(255,255,255,0.13);color:var(--muted);margin-bottom:52px;}.intro-scores{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-bottom:44px;}.intro-score-chip{padding:11px 26px;border-radius:100px;font-family:var(--font-c);font-size:19px;font-weight:700;letter-spacing:2px;}.intro-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:48px;}.begin-btn{padding:17px 56px;border:none;border-radius:12px;font-family:var(--font-d);font-size:21px;letter-spacing:4px;cursor:pointer;transition:all 0.2s;background:white;color:#080810;}.begin-btn:hover{transform:translateY(-2px);box-shadow:0 8px 36px rgba(255,255,255,0.18);}.edit-list-btn{padding:17px 32px;border:1px solid rgba(255,255,255,0.2);border-radius:12px;font-family:var(--font-d);font-size:18px;letter-spacing:3px;cursor:pointer;transition:all 0.2s;background:transparent;color:rgba(255,255,255,0.6);}.edit-list-btn:hover{border-color:rgba(255,255,255,0.5);color:white;transform:translateY(-1px);}to{opacity:1}}.edit-add-input:focus{border-color:#FFD200;}.corner-btns{position:fixed;top:16px;right:16px;z-index:200;display:flex;gap:8px;}.end-quiz-btn{background:rgba(255,61,107,0.08);border:1px solid rgba(255,61,107,0.25);border-radius:8px;padding:8px 14px;color:rgba(255,61,107,0.6);font-family:var(--font-c);font-size:12px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all 0.15s;}.end-quiz-btn:hover{background:rgba(255,61,107,0.15);color:#FF3D6B;border-color:rgba(255,61,107,0.5);}.fs-btn,.mute-btn{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px 14px;color:var(--muted);font-family:var(--font-c);font-size:12px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all 0.15s;}.fs-btn:hover,.mute-btn:hover{background:rgba(255,255,255,0.1);color:var(--text);}.mute-btn.muted{border-color:#FF3D6B50;color:#FF3D6B;background:rgba(255,61,107,0.08);}.confetti-wrap{position:fixed;inset:0;pointer-events:none;z-index:400;overflow:hidden;}.confetti-p{position:absolute;width:10px;height:10px;border-radius:2px;animation:confettiFall linear forwards;}@keyframes confettiFall{0%{transform:translateY(-20px) rotate(0deg) scale(1);opacity:1;}80%{opacity:1;}100%{transform:translateY(110vh) rotate(720deg) scale(0.5);opacity:0;}}@keyframes scoreBump{0%,100%{transform:scale(1)}40%{transform:scale(1.35)}}.score-bump{animation:scoreBump 0.3s ease;}.score-bar{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}.score-chip{display:flex;align-items:center;gap:6px;padding:5px 8px 5px 12px;border-radius:100px;border:1px solid;font-family:var(--font-c);font-size:13px;font-weight:700;letter-spacing:1px;}.score-chip .pts{font-family:var(--font-d);font-size:18px;line-height:1;min-width:22px;text-align:center;cursor:pointer;border-radius:3px;padding:1px 3px;transition:background 0.1s;}.score-chip .pts:hover{background:rgba(255,255,255,0.1);}.score-edit-input{font-family:var(--font-d);font-size:18px;width:46px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.35);border-radius:4px;color:inherit;text-align:center;outline:none;padding:1px 2px;}.score-adj{display:flex;flex-direction:column;gap:2px;}.score-adj-btn{width:20px;height:14px;background:rgba(255,255,255,0.07);border:none;border-radius:3px;color:rgba(255,255,255,0.45);font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.1s;padding:0;}.score-adj-btn:hover{background:rgba(255,255,255,0.18);color:white;}.game-screen{width:100%;max-width:1100px;position:relative;z-index:1;display:flex;flex-direction:column;gap:18px;}.q-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:44px 48px;position:relative;overflow:hidden;}.round-chip{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-c);font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:22px;}.round-dot{width:6px;height:6px;border-radius:50%;}.question-display{font-family:var(--font-d);font-size:clamp(26px,3.5vw,44px);letter-spacing:1px;line-height:1.2;margin-bottom:32px;text-transform:uppercase;}.answer-hidden{display:flex;align-items:center;gap:10px;padding:15px 20px;background:rgba(255,255,255,0.03);border:1px dashed rgba(255,255,255,0.1);border-radius:10px;cursor:pointer;transition:all 0.15s;font-family:var(--font-c);font-size:14px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:28px;}.answer-hidden:hover{border-color:rgba(255,255,255,0.22);color:var(--text);background:rgba(255,255,255,0.05);}.answer-shown{padding:15px 20px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:10px;font-family:var(--font-d);font-size:30px;letter-spacing:2px;color:#FFD200;animation:revealAns 0.4s cubic-bezier(0.2,1.3,0.4,1);text-transform:uppercase;margin-bottom:28px;box-shadow:0 0 32px rgba(255,210,0,0.2);}@keyframes revealAns{0%{opacity:0;transform:scale(0.88) translateY(8px)}70%{transform:scale(1.03)}100%{opacity:1;transform:scale(1) translateY(0)}}.award-grid{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;}.team-pts-group{flex:1;min-width:140px;display:flex;flex-direction:column;gap:6px;}.team-pts-label{font-family:var(--font-c);font-size:12px;letter-spacing:2px;text-transform:uppercase;text-align:center;padding:4px 0;}.pts-btn-row{display:flex;gap:6px;}.pts-btn{flex:1;padding:12px 8px;border:1px solid;border-radius:8px;background:transparent;font-family:var(--font-d);font-size:18px;letter-spacing:1px;cursor:pointer;transition:all 0.12s;}.pts-btn:hover{transform:translateY(-1px);}.pts-btn.plus{}.pts-btn.minus{opacity:0.55;}.pts-btn.minus:hover{opacity:1;}.host-controls{display:flex;gap:10px;flex-wrap:wrap;}.ctrl-btn{flex:1;padding:13px 14px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:10px;color:var(--muted);font-family:var(--font-c);font-size:13px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all 0.15s;}.ctrl-btn:hover{background:rgba(255,255,255,0.08);color:var(--text);}.ctrl-btn.next{background:rgba(255,255,255,0.07);color:var(--text);font-weight:600;}.ctrl-btn.next:hover{background:rgba(255,255,255,0.13);}.ctrl-btn.reroll{color:rgba(255,210,0,0.4);border-color:rgba(255,210,0,0.12);flex:0 0 auto;padding:7px 12px;font-size:11px;letter-spacing:1px;align-self:center;}.ctrl-btn.reroll:hover{color:#FFD200;border-color:rgba(255,210,0,0.35);background:rgba(255,210,0,0.06);}.q-progress{text-align:center;font-family:var(--font-c);font-size:11px;letter-spacing:3px;color:rgba(240,238,232,0.18);}.sporcle-screen{width:100%;max-width:1100px;position:relative;z-index:1;display:flex;flex-direction:column;gap:16px;}.sporcle-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}.sporcle-title{font-family:var(--font-d);font-size:clamp(28px,4vw,48px);letter-spacing:2px;text-transform:uppercase;}.timer-display{font-family:var(--font-d);font-size:48px;letter-spacing:2px;min-width:90px;text-align:right;}.timer-display.urgent{color:#FF3D6B;animation:timerPulse 0.5s ease-in-out infinite;}@keyframes timerPulse{0%,100%{opacity:1}50%{opacity:0.5}}.sporcle-progress{font-family:var(--font-c);font-size:13px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);}.sporcle-input-row{display:flex;gap:10px;align-items:center;}.sporcle-input{flex:1;background:var(--surface);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:16px 20px;color:var(--text);font-family:var(--font-c);font-size:20px;font-weight:600;letter-spacing:1px;outline:none;transition:border-color 0.2s;}.sporcle-input:focus{border-color:#FFD200;box-shadow:0 0 0 2px rgba(255,210,0,0.15);}.sporcle-input:disabled{opacity:0.4;cursor:not-allowed;}.sporcle-input.flash{animation:inputFlash 0.25s ease;}@keyframes inputFlash{0%,100%{border-color:rgba(255,255,255,0.15)}50%{border-color:#4ade80;box-shadow:0 0 0 2px rgba(74,222,128,0.2)}}.timer-ctrl-btn{padding:14px 20px;border:1px solid var(--border);border-radius:10px;background:transparent;color:var(--muted);font-family:var(--font-c);font-size:13px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all 0.15s;white-space:nowrap;}.timer-ctrl-btn:hover{background:rgba(255,255,255,0.07);color:var(--text);}.timer-ctrl-btn.running{border-color:#FF3D6B50;color:#FF3D6B;}.grid-container{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px 28px;}.grid-label{font-family:var(--font-c);font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:16px;}.answer-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;}.answer-tile{padding:10px 14px;border-radius:8px;font-family:var(--font-c);font-size:14px;font-weight:600;letter-spacing:0.5px;text-align:center;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:rgba(240,238,232,0.18);transition:all 0.3s;min-height:40px;display:flex;align-items:center;justify-content:center;}.answer-tile.revealed{background:rgba(74,222,128,0.12);border-color:rgba(74,222,128,0.35);color:#4ade80;animation:tileReveal 0.35s ease;}@keyframes tileReveal{0%{transform:scale(0.85);opacity:0}60%{transform:scale(1.06)}100%{transform:scale(1);opacity:1}}.sporcle-done{text-align:center;padding:24px 0;}.sporcle-done-score{font-family:var(--font-d);font-size:72px;color:#FFD200;line-height:1;}.sporcle-done-label{font-family:var(--font-c);font-size:14px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:32px;}.sporcle-award-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:20px;}.sporcle-award-btn{padding:14px 28px;border:1px solid;border-radius:10px;background:transparent;font-family:var(--font-d);font-size:18px;letter-spacing:2px;cursor:pointer;transition:all 0.15s;}.sporcle-award-btn:hover{transform:translateY(-1px);}.duel-teams{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:16px;}.duel-card{border:2px solid;border-radius:14px;padding:18px 20px;text-align:center;transition:all 0.25s;}.duel-card.active{transform:scale(1.03);}.duel-card.eliminated{opacity:0.3;filter:grayscale(0.8);}.duel-name{font-family:var(--font-c);font-size:19px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;}.duel-strikes{font-size:22px;letter-spacing:4px;margin-bottom:4px;min-height:32px;}.duel-status{font-family:var(--font-c);font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}.wrong-flash{animation:wrongShake 0.4s ease;}@keyframes wrongShake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}.duel-winner-banner{text-align:center;padding:20px 0 8px;}.duel-winner-name{font-family:var(--font-d);font-size:52px;letter-spacing:3px;text-transform:uppercase;margin-bottom:6px;}.duel-winner-sub{font-family:var(--font-c);font-size:13px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:28px;}60%{transform:scale(1.3)}100%{transform:scale(1)}}100%{opacity:0}}15%,45%,75%{transform:translateX(-10px)}30%,60%,90%{transform:translateX(10px)}}100%{opacity:1;transform:scale(1)}}.end-screen{text-align:center;position:relative;z-index:1;width:100%;max-width:680px;}.winner-lbl{font-family:var(--font-c);font-size:13px;letter-spacing:5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;animation:fadeUp 0.5s ease;}.winner-name{font-family:var(--font-d);font-size:clamp(52px,10vw,108px);letter-spacing:4px;line-height:1;margin-bottom:6px;animation:fadeUp 0.55s ease;text-transform:uppercase;}.winner-score{font-family:var(--font-c);font-size:20px;letter-spacing:3px;color:var(--muted);margin-bottom:44px;animation:fadeUp 0.6s ease;}@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}.final-scores{display:flex;flex-direction:column;gap:10px;margin-bottom:44px;animation:fadeUp 0.7s ease;}.final-row{display:flex;align-items:center;justify-content:space-between;padding:13px 20px;border-radius:10px;border:1px solid;}.final-team{font-family:var(--font-c);font-size:19px;font-weight:700;letter-spacing:2px;text-transform:uppercase;}.final-pts{font-family:var(--font-d);font-size:30px;}.play-again-btn{padding:17px 48px;background:white;border:none;border-radius:12px;font-family:var(--font-d);font-size:21px;letter-spacing:4px;color:#080810;cursor:pointer;transition:all 0.2s;animation:fadeUp 0.8s ease;}.play-again-btn:hover{transform:translateY(-2px);box-shadow:0 8px 36px rgba(255,255,255,0.18);}.feud-board{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px 28px}.feud-question{font-family:var(--font-d);font-size:clamp(20px,3vw,34px);letter-spacing:1px;line-height:1.2;text-transform:uppercase;margin-bottom:20px}.feud-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}.feud-tile{padding:12px 14px;border-radius:8px;font-family:var(--font-c);font-size:14px;font-weight:700;letter-spacing:0.5px;text-align:center;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:rgba(240,238,232,0.18);min-height:44px;display:flex;align-items:center;justify-content:center;transition:all 0.3s}.feud-tile.found{background:rgba(74,222,128,0.12);border-color:rgba(74,222,128,0.35);color:#4ade80;animation:tileReveal 0.35s ease}.feud-panel{border:2px solid;border-radius:14px;padding:18px 22px;transition:all 0.3s}.feud-panel-label{font-family:var(--font-c);font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:4px}.feud-panel-team{font-family:var(--font-d);font-size:26px;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px}.feud-strikes{display:flex;gap:10px;margin-bottom:14px}.feud-pip{width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:14px;transition:all 0.3s}.feud-pip.hit{border-color:#f87171;background:rgba(248,113,113,0.15);animation:pipPop 0.4s ease}@keyframes pipPop{0%{transform:scale(0.4)}60%{transform:scale(1.3)}100%{transform:scale(1)}}.feud-red-flash{position:fixed;inset:0;background:#f87171;pointer-events:none;z-index:500;animation:redFlash 0.45s ease forwards}@keyframes redFlash{0%{opacity:0.5}100%{opacity:0}}.feud-shake{animation:feudShake 0.45s ease}@keyframes feudShake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-10px)}40%,80%{transform:translateX(10px)}}.steal-banner{text-align:center;padding:20px 24px;background:var(--surface);border:2px solid #FFD200;border-radius:16px;animation:stealIn 0.4s cubic-bezier(0.2,1.4,0.4,1)}@keyframes stealIn{0%{opacity:0;transform:scale(0.88)}100%{opacity:1;transform:scale(1)}}.steal-title{font-family:var(--font-d);font-size:clamp(36px,5vw,64px);letter-spacing:4px;color:#FFD200;text-transform:uppercase;margin-bottom:4px}.steal-sub{font-family:var(--font-c);font-size:13px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:18px}.slot-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.93);z-index:600;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px}.slot-lbl{font-family:var(--font-c);font-size:12px;letter-spacing:5px;text-transform:uppercase;color:var(--muted)}.slot-window{background:var(--surface);border:2px solid rgba(255,255,255,0.12);border-radius:16px;padding:20px 56px;min-width:300px;text-align:center;transition:all 0.4s}.slot-name{font-family:var(--font-d);font-size:clamp(36px,6vw,72px);letter-spacing:3px;text-transform:uppercase}.slot-sub{font-family:var(--font-c);font-size:12px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-top:4px;opacity:0;transition:opacity 0.4s}.slot-sub.show{opacity:1}`
+
+function QAScreen({currentRound,qIdx,roundIdx,teams,scores,revealed,setRevealed,adjustPoint,setScore,nextQ,rerollQ,tc}) {
+  return(
+    <div className="game-screen">
+      <ScoreBar teams={teams} scores={scores} onAdjust={adjustPoint} onSetScore={setScore}/>
+      <div className="q-card" style={{borderColor:tc(roundIdx).main+"30"}}>
+        <div style={{position:"absolute",top:0,left:0,right:0,height:3,background:`linear-gradient(90deg,${tc(roundIdx).main},transparent)`,borderRadius:"20px 20px 0 0"}}/>
+        <div className="round-chip">
+          <div className="round-dot" style={{background:tc(roundIdx).main}}/>
+          {currentRound.name} &nbsp;·&nbsp; Q{qIdx+1} of {currentRound.questions?.length}
+        </div>
+        <div className="question-display">{currentRound.questions?.[qIdx]?.question}</div>
+        <div className="answer-reveal" style={{marginBottom:revealed?16:24}}>
+          {!revealed
+            ?<button className="answer-hidden" onClick={()=>{setRevealed(true);SFX.correct();}}><span>▶</span> Reveal Answer</button>
+            :<div className="answer-shown">{currentRound.questions?.[qIdx]?.answer}</div>}
+        </div>
+        {revealed&&(
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:16}}>
+            {teams.map((t,i)=>(
+              <button key={t.id}
+                style={{flex:1,minWidth:100,padding:"10px 14px",border:`1px solid ${tc(i).main}60`,borderRadius:8,background:tc(i).dim,color:tc(i).main,fontFamily:"var(--font-c)",fontSize:14,fontWeight:700,letterSpacing:1,cursor:"pointer",transition:"all 0.12s"}}
+                onMouseOver={e=>e.currentTarget.style.background=tc(i).glow}
+                onMouseOut={e=>e.currentTarget.style.background=tc(i).dim}
+                onClick={()=>{adjustPoint(t.id,1);SFX.point();}}>+1 {t.name}</button>
+            ))}
+          </div>
+        )}
+        <div className="host-controls">
+          <button className="ctrl-btn reroll" onClick={rerollQ}>↺ Re-roll</button>
+          <button className="ctrl-btn next" onClick={nextQ}>{qIdx+1>=(currentRound.questions?.length||0)?"END ROUND →":"NEXT QUESTION →"}</button>
+        </div>
+      </div>
+      <div className="q-progress">
+        {Array.from({length:currentRound.questions?.length||0}).map((_,i)=>(
+          <span key={i} style={{marginRight:4,color:i<qIdx?tc(roundIdx).main:i===qIdx?"white":"rgba(255,255,255,0.14)"}}>{i<=qIdx?"●":"○"}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EditListOverlay({ round, onSave, onCancel, accentColor }) {
+  const [items, setItems] = useState([...(round.items || [])]);
+  const [newItem, setNewItem] = useState("");
+  const addRef = useRef(null);
+  function removeItem(idx) { setItems(i => i.filter((_, j) => j !== idx)); }
+  function addItem() {
+    const v = newItem.trim();
+    if (!v || items.includes(v)) return;
+    setItems(i => [...i, v]);
+    setNewItem("");
+    addRef.current?.focus();
+  }
+  return (
+    <div className="edit-overlay">
+      <div className="edit-panel">
+        <div>
+          <div className="edit-panel-title" style={{color: accentColor}}>{round.name}</div>
+          <div className="edit-panel-sub">{items.length} items · remove or add before the round starts</div>
+        </div>
+        <div className="edit-items">
+          {items.map((item, i) => (
+            <div key={i} className="edit-item">
+              <span>{item}</span>
+              <button className="edit-item-del" onClick={() => removeItem(i)}>×</button>
+            </div> ))}
+        </div>
+        <div className="edit-add-row">
+          <input
+            ref={addRef}
+            className="edit-add-input"
+            placeholder="Add a missing item…"
+            value={newItem}
+            onChange={e => setNewItem(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && addItem()} />
+          <button className="edit-add-btn" onClick={addItem}>+ Add</button>
+        </div>
+        <div className="edit-footer">
+          <button className="edit-cancel-btn" onClick={onCancel}>Cancel</button>
+          <button className="edit-confirm-btn" onClick={() => onSave(items)}>CONFIRM LIST →</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+function ScoreBar({ teams, scores, onAdjust, onSetScore, style }) {
+  const [editing, setEditing] = useState(null);
+  const [editVal, setEditVal] = useState("");
+  const editRef = useRef(null);
+  useEffect(() => { if (editing) setTimeout(() => editRef.current?.select(), 50); }, [editing]);
+  function startEdit(teamId, current) {
+    setEditing(teamId);
+    setEditVal(String(current));
+  }
+  function commitEdit(teamId) {
+    const n = parseInt(editVal);
+    if (!isNaN(n) && n >= 0) onSetScore(teamId, n);
+    setEditing(null);
+  }
+  return (
+    <div className="score-bar" style={style}>
+      {teams.map((t, i) => (
+        <div key={t.id} className="score-chip"
+          style={{borderColor: tc(i).main + "55", background: tc(i).dim, color: tc(i).main}}>
+          <span style={{fontSize: 13}}>{t.name}</span>
+          {editing === t.id ? (
+            <input
+              ref={editRef}
+              className="score-edit-input"
+              value={editVal}
+              onChange={e => setEditVal(e.target.value)}
+              onBlur={() => commitEdit(t.id)}
+              onKeyDown={e => { if (e.key === "Enter") commitEdit(t.id); if (e.key === "Escape") setEditing(null); }}
+              style={{color: tc(i).main}} /> ) : (
+            <span className="pts" title="Click to edit score" onClick={() => startEdit(t.id, scores[t.id] || 0)}>
+              {scores[t.id] || 0}
+            </span> )}
+          <div className="score-adj">
+            <button className="score-adj-btn" onClick={() => { onAdjust(t.id, 1); SFX.point(); }}>▲</button>
+            <button className="score-adj-btn" onClick={() => onAdjust(t.id, -1)}>▼</button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+const MAX_STRIKES = 3;
+function SporcleRound({round,roundIdx,teams,scores,onAdjust,onSetScore,onFinish}) {
+  const items=round.items||[];
+  const [guessed,setGuessed]=useState(new Set());
+  const [inputVal,setInputVal]=useState('');
+  const [strikes,setStrikes]=useState(()=>{const s={};teams.forEach(t=>{s[t.id]=0;});return s;});
+  const [turnIdx,setTurnIdx]=useState(0);
+  const [eliminated,setEliminated]=useState([]);
+  const [wrongFlash,setWrongFlash]=useState(null);
+  const [done,setDone]=useState(false);
+  const [winner,setWinner]=useState(null);
+  const [lastResult,setLastResult]=useState(null);
+  const inputRef=useRef(null);
+  useEffect(()=>{if(!done)inputRef.current?.focus();},[turnIdx,done]);
+  const activeTeams=teams.filter(t=>!eliminated.includes(t.id));
+  const currentTeam=activeTeams[turnIdx%Math.max(activeTeams.length,1)];
+  const currentTeamIdx=teams.indexOf(currentTeam);
+  function submitAnswer(){
+    if(done||!inputVal.trim())return;
+    for(const item of items){
+      if(!guessed.has(item)&&fuzzy(inputVal,item)){
+        const next=new Set([...guessed,item]);
+        setGuessed(next);setInputVal('');setLastResult('correct');
+        setTimeout(()=>setLastResult(null),600);SFX.tilePop();setTurnIdx(i=>i+1);
+        if(next.size>=items.length){setDone(true);setWinner(currentTeam);setTimeout(()=>SFX.winner(),100);}
+        return;
+      }
+    }
+    handleWrong();
+  }
+  function handleWrong(){
+    if(done||!currentTeam)return;
+    setLastResult('wrong');setTimeout(()=>setLastResult(null),600);
+    const ns={...strikes,[currentTeam.id]:(strikes[currentTeam.id]||0)+1};
+    setStrikes(ns);setWrongFlash(currentTeam.id);setTimeout(()=>setWrongFlash(null),500);setInputVal('');SFX.wrong();
+    if(ns[currentTeam.id]>=MAX_STRIKES){
+      const newElim=[...eliminated,currentTeam.id];setEliminated(newElim);setTimeout(()=>SFX.eliminated(),80);
+      const rem=teams.filter(t=>!newElim.includes(t.id));
+      if(rem.length===1){setWinner(rem[0]);setDone(true);setTimeout(()=>SFX.winner(),300);return;}
+      else if(rem.length===0){setDone(true);return;}
+    }
+    setTurnIdx(i=>i+1);
+  }
+  const pips=(id)=>{const s=strikes[id]||0;return '❌'.repeat(s)+'○'.repeat(Math.max(0,MAX_STRIKES-s));};
+  const bc=lastResult==='correct'?'#4ade80':lastResult==='wrong'?'#f87171':'rgba(255,255,255,0.15)';
+  return(
+    <div className="sporcle-screen">
+      <ScoreBar teams={teams} scores={scores} onAdjust={onAdjust} onSetScore={onSetScore} style={{marginBottom:14}}/>
+      <div className="duel-teams">
+        {teams.map((t,i)=>{
+          const isActive=!done&&currentTeam?.id===t.id;
+          const isElim=eliminated.includes(t.id);
+          return(
+            <div key={t.id} className={`duel-card${isActive?' active':''}${isElim?' eliminated':''}${wrongFlash===t.id?' wrong-flash':''}`}
+              style={{borderColor:isActive?tc(i).main:tc(i).main+'28',background:isActive?tc(i).dim:'transparent',boxShadow:isActive?`0 0 28px ${tc(i).glow}`:'none'}}>
+              <div className="duel-name" style={{color:tc(i).main}}>{t.name}</div>
+              <div className="duel-strikes">{isElim?'💀':pips(t.id)}</div>
+              <div className="duel-status">{isElim?'Eliminated':isActive?'👈 Their turn':'Waiting…'}</div>
+            </div> );
+        })}
+      </div>
+      {!done?(
+        <div style={{background:'var(--surface)',border:`1px solid ${tc(currentTeamIdx).main}35`,borderRadius:14,padding:'18px 22px'}}>
+          <div style={{fontFamily:'var(--font-c)',fontSize:13,letterSpacing:3,textTransform:'uppercase',color:'var(--muted)',marginBottom:10}}>
+            {currentTeam?.name} — name a {round.name}
+          </div>
+          <div className="sporcle-input-row">
+            <input ref={inputRef} className="sporcle-input" placeholder="Type answer, press Enter…"
+              value={inputVal} onChange={e=>setInputVal(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submitAnswer()}
+              autoComplete="off" autoCorrect="off" spellCheck="false"
+              style={{borderColor:bc,transition:'border-color 0.2s'}}/>
+            <button className="timer-ctrl-btn" style={{borderColor:'#f8717155',color:'#f87171'}} onClick={handleWrong}>✗ Pass</button>
+          </div>
+          <div style={{fontFamily:'var(--font-c)',fontSize:11,letterSpacing:2,color:'var(--muted)',marginTop:10}}>
+            {guessed.size}/{items.length} found · Press Enter to submit
+          </div>
+        </div>
+      ):(
+        <div className="sporcle-done">
+          <div className="sporcle-done-score">{guessed.size}/{items.length}</div>
+          <div className="sporcle-done-label">{winner?`${winner.name} wins!`:'Round over'}</div>
+          <div className="sporcle-award-row">
+            {teams.map((t,i)=>(
+              <button key={t.id} className="sporcle-award-btn"
+                style={{borderColor:tc(i).main+'60',color:tc(i).main,background:tc(i).dim}}
+                onClick={()=>{onAdjust(t.id,1);SFX.point();}}>+1 {t.name}</button> ))}
+          </div>
+          <div style={{display:'flex',gap:8,justifyContent:'center',flexWrap:'wrap',marginBottom:16}}>
+            {items.filter(x=>!guessed.has(x)).slice(0,12).map((x,i)=>(
+              <span key={i} style={{padding:'3px 10px',borderRadius:100,background:'rgba(248,113,113,0.08)',border:'1px solid rgba(248,113,113,0.2)',color:'#f87171',fontFamily:'var(--font-c)',fontSize:12}}>{x}</span> ))}
+          </div>
+          <button className="ctrl-btn next" onClick={onFinish}>End Round →</button>
+        </div>
+      )}
+      <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:12,padding:'14px 18px',marginTop:4}}>
+        <div style={{fontFamily:'var(--font-c)',fontSize:10,letterSpacing:2,textTransform:'uppercase',color:'var(--muted)',marginBottom:8}}>
+          {done?'Full Answer List':`${round.name} — ${items.length} total`}
+        </div>
+        <div className="answer-grid">
+          {items.map((item,i)=>(
+            <div key={i} className={`answer-tile${guessed.has(item)?' revealed':''}`}>{guessed.has(item)?item:''}</div> ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+function SlotMachine({teams,onDone}) {
+  const [idx,setIdx]=useState(0);
+  const [winner,setWinner]=useState(null);
+  const ref=useRef(null);
+  useEffect(()=>{
+    const w=Math.floor(Math.random()*teams.length);
+    let ticks=0,total=24+teams.length*4;
+    function tick(){
+      SFX.slotTick();
+      setIdx(i=>(i+1)%teams.length);
+      ticks++;
+      const left=total-ticks;
+      const delay=left>8?65:65+(8-left)*65;
+      if(ticks>=total){setIdx(w);setWinner(w);SFX.slotLand();return;}
+      ref.current=setTimeout(tick,delay);
+    }
+    ref.current=setTimeout(tick,65);
+    return()=>clearTimeout(ref.current);
+  },[]);
+  const col=winner!==null?tc(winner).main:'rgba(255,255,255,0.55)';
+  return(
+    <div className="slot-overlay">
+      <div className="slot-lbl">Who goes first?</div>
+      <div className="slot-window" style={{borderColor:winner!==null?col:'rgba(255,255,255,0.12)',boxShadow:winner!==null?`0 0 40px ${col}30`:'none'}}>
+        <div className="slot-name" style={{color:col}}>{teams[idx]?.name}</div>
+        <div className={`slot-sub${winner!==null?' show':''}`}>Goes First!</div>
+      </div>
+      {winner!==null&&<button onClick={()=>onDone(winner)}
+        style={{padding:'13px 44px',background:col,border:'none',borderRadius:12,fontFamily:'var(--font-d)',fontSize:18,letterSpacing:3,color:'#080810',cursor:'pointer',marginTop:8}}>PLAY</button>}
+    </div>
+  );
+}
+const FEUD_STRIKES=3;
+function FamilyFeud({round,qIdx,setQIdx,teams,scores,onAdjust,onSetScore,onFinish,tc}) {
+  const questions=round.questions||[];
+  const q=questions[qIdx]||{};
+  const answers=q.answers||[];
+  const [phase,setPhase]=useState('slot');
+  const [activeIdx,setActiveIdx]=useState(0);
+  const [firstIdx,setFirstIdx]=useState(0);
+  const [found,setFound]=useState(new Set());
+  const [strikes,setStrikes]=useState(0);
+  const [input,setInput]=useState('');
+  const [flash,setFlash]=useState(null);
+  const [redFlash,setRedFlash]=useState(false);
+  const [shake,setShake]=useState(false);
+  const [tried,setTried]=useState(new Set());
+  const inputRef=useRef(null);
+  useEffect(()=>{setPhase('slot');setFound(new Set());setStrikes(0);setInput('');setTried(new Set());},[qIdx]);
+  useEffect(()=>{if(phase==='playing'||phase==='steal')inputRef.current?.focus();},[phase,activeIdx]);
+  function doFlash(t){setFlash(t);setTimeout(()=>setFlash(null),600);}
+  function doShake(){setShake(true);setTimeout(()=>setShake(false),500);}
+  function doRed(){setRedFlash(true);setTimeout(()=>setRedFlash(false),450);}
+  function onSlotDone(w){setFirstIdx(w);setActiveIdx(w);setPhase('playing');}
+  function submitPlay(){
+    if(!input.trim())return;
+    for(const ans of answers){
+      if(!found.has(ans)&&fuzzy(input,ans)){
+        const next=new Set([...found,ans]);
+        setFound(next);setInput('');doFlash('correct');
+        SFX.tilePop();onAdjust(teams[activeIdx].id,1);SFX.point();
+        if(next.size>=answers.length){setPhase('done');setTimeout(()=>SFX.winner(),100);}
+        return;
+      }
+    }
+    strike();
+  }
+  function strike(){
+    const s=strikes+1;setStrikes(s);setInput('');doFlash('wrong');doShake();doRed();
+    if(s>=FEUD_STRIKES){
+      SFX.threeStrikes();
+      setTimeout(()=>{
+        if(answers.filter(a=>!found.has(a)).length===0){setPhase('done');return;}
+        setActiveIdx((activeIdx+1)%teams.length);setTried(new Set());SFX.stealTension();setPhase('steal');
+      },1800);
+    } else SFX.bigWrong();
+  }
+  function submitSteal(){
+    if(!input.trim())return;
+    const rem=answers.filter(a=>!found.has(a));
+    for(const ans of rem){
+      if(fuzzy(input,ans)){
+        onAdjust(teams[activeIdx].id,rem.length);setFound(new Set(answers));setInput('');SFX.stealSuccess();setPhase('done');return;
+      }
+    }
+    setInput('');SFX.stealMiss();doShake();
+    const t=new Set([...tried,activeIdx]);setTried(t);
+    let next=(activeIdx+1)%teams.length,checked=0;
+    while((t.has(next)||next===firstIdx)&&checked<teams.length){next=(next+1)%teams.length;checked++;}
+    if(t.size>=teams.length-1||next===firstIdx)setTimeout(()=>setPhase('done'),800);
+    else setTimeout(()=>{setActiveIdx(next);SFX.stealTension();},700);
+  }
+  const rem=answers.filter(a=>!found.has(a));
+  const tcA=tc(activeIdx);
+  const bc=flash==='correct'?'#4ade80':flash==='wrong'?'#f87171':'rgba(255,255,255,0.15)';
+  return(
+    <div className="sporcle-screen">
+      {phase==='slot'&&<SlotMachine teams={teams} onDone={onSlotDone}/>}
+      {redFlash&&<div className="feud-red-flash"/>}
+      <ScoreBar teams={teams} scores={scores} onAdjust={onAdjust} onSetScore={onSetScore} style={{marginBottom:4}}/>
+      <div className="feud-board">
+        <div className="feud-question">{q.question}</div>
+        <div className="feud-grid">
+          {answers.map((ans,i)=>(
+            <div key={i} className={`feud-tile${found.has(ans)?' found':''}`}>{found.has(ans)?ans:String(i+1)}</div> ))}
+        </div>
+      </div>
+      {phase==='playing'&&(
+        <div className={`feud-panel${shake?' feud-shake':''}`} style={{borderColor:tcA.main,boxShadow:`0 0 24px ${tcA.glow}`}}>
+          <div className="feud-panel-label">Playing</div>
+          <div className="feud-panel-team" style={{color:tcA.main}}>{teams[activeIdx]?.name}</div>
+          <div className="feud-strikes">
+            {Array.from({length:FEUD_STRIKES}).map((_,i)=>(
+              <div key={i} className={`feud-pip${i<strikes?' hit':''}`}>{i<strikes?'✗':''}</div> ))}
+          </div>
+          <div className="sporcle-input-row">
+            <input ref={inputRef} className="sporcle-input" placeholder="Type answer and press Enter…"
+              value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submitPlay()}
+              autoComplete="off" autoCorrect="off" spellCheck="false" style={{borderColor:bc,transition:'border-color 0.2s'}}/>
+            <button className="timer-ctrl-btn" style={{borderColor:'#f8717155',color:'#f87171'}} onClick={strike}>✗ Strike</button>
+          </div>
+          <div style={{fontFamily:'var(--font-c)',fontSize:11,letterSpacing:2,color:'var(--muted)',marginTop:10}}>{found.size} found · {rem.length} remaining</div>
+        </div>
+      )}
+      {phase==='steal'&&(
+        <div className={`steal-banner${shake?' feud-shake':''}`}>
+          <div className="steal-title">STEAL!</div>
+          <div className="steal-sub" style={{color:tcA.main}}>{teams[activeIdx]?.name} — one guess for {rem.length} pt{rem.length!==1?'s':''}</div>
+          <div className="sporcle-input-row" style={{maxWidth:500,margin:'0 auto'}}>
+            <input ref={inputRef} className="sporcle-input" placeholder="One guess — press Enter…"
+              value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submitSteal()}
+              autoComplete="off" autoCorrect="off" spellCheck="false" style={{borderColor:'#FFD200',boxShadow:'0 0 0 2px rgba(255,210,0,0.15)'}}/>
+            <button className="timer-ctrl-btn" style={{borderColor:'#FFD20066',color:'#FFD200'}} onClick={submitSteal}>Submit</button>
+          </div>
+        </div>
+      )}
+      {phase==='done'&&(
+        <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:14,padding:'22px 26px',textAlign:'center'}}>
+          <div style={{fontFamily:'var(--font-c)',fontSize:12,letterSpacing:3,textTransform:'uppercase',color:'var(--muted)',marginBottom:10}}>{found.size}/{answers.length} found</div>
+          {rem.length>0&&(
+            <div style={{display:'flex',flexWrap:'wrap',gap:6,justifyContent:'center',marginBottom:14}}>
+              {rem.map((a,i)=><span key={i} style={{padding:'4px 12px',borderRadius:100,background:'rgba(248,113,113,0.1)',border:'1px solid rgba(248,113,113,0.25)',color:'#f87171',fontFamily:'var(--font-c)',fontSize:13}}>{a}</span>)}
+            </div> )}
+          <button className="ctrl-btn next" onClick={()=>qIdx+1<questions.length?setQIdx(q=>q+1):onFinish()}>
+            {qIdx+1<questions.length?'Next Question →':'End Round →'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+function TrueFalseRound({ currentRound, qIdx, roundIdx, teams, scores, revealed, setRevealed, adjustPoint, setScore, nextQ, rerollQ, tc }) {
+  const q = currentRound.questions?.[qIdx];
+  return (
+    <div className="game-screen">
+      <ScoreBar teams={teams} scores={scores} onAdjust={adjustPoint} onSetScore={setScore} />
+      <div className="q-card" style={{borderColor: tc(roundIdx).main + "30"}}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3,
+          background: `linear-gradient(90deg,${tc(roundIdx).main},transparent)`, borderRadius: "20px 20px 0 0" }} />
+        <div className="round-chip">
+          <div className="round-dot" style={{background: tc(roundIdx).main}} />
+          {currentRound.name} &nbsp;·&nbsp; {qIdx + 1} of {currentRound.questions?.length}
+        </div>
+        <div style={{display: "flex", gap: 12, marginBottom: 24}}>
+          {["TRUE", "FALSE"].map(label => (
+            <div key={label} style={{flex: 1, textAlign: "center", padding: "10px 0", borderRadius: 10, fontFamily: "var(--font-d)", fontSize: 22, letterSpacing: 3, border: revealed ? (label === (q?.answer ? "TRUE" : "FALSE") ? "2px solid #4ade80" : "1px solid rgba(255,255,255,0.06)") : "1px solid rgba(255,255,255,0.1)", background: revealed ? (label === (q?.answer ? "TRUE" : "FALSE") ? "rgba(74,222,128,0.12)" : "rgba(255,255,255,0.02)") : "rgba(255,255,255,0.03)", color: revealed ? (label === (q?.answer ? "TRUE" : "FALSE") ? "#4ade80" : "rgba(255,255,255,0.2)") : "rgba(255,255,255,0.5)", transition: "all 0.3s",}}>{label}</div> ))}
+        </div>
+        <div className="question-display">{q?.statement}</div>
+        <div className="answer-reveal" style={{marginBottom: revealed ? 16 : 24}}>
+          {!revealed
+            ? <button className="answer-hidden" onClick={() => { setRevealed(true); SFX.correct(); }}><span>▶</span> Reveal Answer</button>
+            : (
+              <div style={{display: "flex", flexDirection: "column", gap: 8}}>
+                <div className="answer-shown" style={{fontSize: 22}}>{q?.answer ? "✓ TRUE" : "✗ FALSE"}</div>
+                {q?.explanation && (
+                  <div style={{fontFamily: "var(--font-c)", fontSize: 14, color: "var(--muted)", letterSpacing: 1, padding: "0 4px"}}>
+                    {q.explanation}
+                  </div> )}
+              </div> )}
+        </div>
+        {revealed && (
+          <div style={{display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16}}>
+            {teams.map((t, i) => (
+              <button key={t.id}
+                style={{ flex: 1, minWidth: 100, padding: "10px 14px", border: `1px solid ${tc(i).main}60`,
+                  borderRadius: 8, background: tc(i).dim, color: tc(i).main, fontFamily: "var(--font-c)",
+                  fontSize: 14, fontWeight: 700, letterSpacing: 1, cursor: "pointer", transition: "all 0.12s" }}
+                onMouseOver={e => e.currentTarget.style.background = tc(i).glow}
+                onMouseOut={e => e.currentTarget.style.background = tc(i).dim}
+                onClick={() => { adjustPoint(t.id, 1); SFX.point(); }}>
+                +1 {t.name}
+              </button> ))}
+          </div>
+        )}
+        <div className="host-controls">
+          <button className="ctrl-btn reroll" onClick={rerollQ}>↺ Re-roll</button>
+          <button className="ctrl-btn next" onClick={nextQ}>
+            {qIdx + 1 >= (currentRound.questions?.length || 0) ? "END ROUND →" : "NEXT QUESTION →"}
+          </button>
+        </div>
+      </div>
+      <div className="q-progress">
+        {Array.from({ length: currentRound.questions?.length || 0 }).map((_, i) => (
+          <span key={i} style={{marginRight: 4, color: i < qIdx ? tc(roundIdx).main : i === qIdx ? "white" : "rgba(255,255,255,0.14)"}}>
+            {i <= qIdx ? "●" : "○"}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+function IntroScreen({ currentRound, roundIdx, rounds, teams, scores, editingList, setEditingList, setRounds, beginRound, tc, MECHANIC_LABELS }) {
+  const [slammed, setSlammed] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSlammed(true);
+      SFX.introSlam();
+    }, 60);
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    <>
+      {slammed && <div className="slam-flash" />}
+      {editingList && (
+        <EditListOverlay
+          round={currentRound}
+          accentColor={tc(roundIdx).main}
+          onSave={(newItems) => {
+            setRounds(rs => rs.map((r, i) => i === roundIdx ? { ...r, items: newItems } : r));
+            setEditingList(false); }}
+          onCancel={() => setEditingList(false)}
+        />
+      )}
+      <div className={`intro-screen${slammed ? " slam" : ""}`}>
+        <div className="intro-round-lbl">Round {roundIdx + 1} of {rounds.length}</div>
+        <div className={`intro-title${slammed ? " slam" : ""}`}
+          style={{ background: `linear-gradient(135deg,${tc(roundIdx).main},white)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
+          {currentRound.name}
+        </div>
+        <div className="intro-badge" style={{opacity: slammed ? 1 : 0, transition: "opacity 0.4s 0.4s"}}>
+          {MECHANIC_LABELS[currentRound.mechanic] || "Q & A"} &nbsp;·&nbsp;
+          {currentRound.mechanic === "sporcle" ? `${currentRound.items?.length} Items` : `${currentRound.questions?.length} Questions`}
+        </div>
+        {roundIdx > 0 && (
+          <div className="intro-scores" style={{opacity: slammed ? 1 : 0, transition: "opacity 0.4s 0.5s"}}>
+            {[...teams].sort((a, b) => (scores[b.id] || 0) - (scores[a.id] || 0)).map((t) => {
+              const i = teams.indexOf(t);
+              return (
+                <div key={t.id} className="intro-score-chip"
+                  style={{ background: tc(i).dim, border: `1px solid ${tc(i).main}50`, color: tc(i).main }}>
+                  {t.name} — {scores[t.id] || 0} pts
+                </div> ); })}
+          </div>
+        )}
+        <div className="intro-actions" style={{opacity: slammed ? 1 : 0, transition: "opacity 0.4s 0.6s"}}>
+          {currentRound.mechanic === "sporcle" && (
+            <button className="edit-list-btn" onClick={() => setEditingList(true)}>✏ EDIT LIST</button> )}
+          <button className="begin-btn" onClick={beginRound}>START ROUND →</button>
+        </div>
+      </div>
+    </>
+  );
+}
+function Confetti() {
+  const pieces = Array.from({ length: 60 }, (_, i) => ({
+    id: i,
+    left: Math.random() * 100,
+    delay: Math.random() * 1.2,
+    dur: 2.2 + Math.random() * 1.4,
+    color: ['#FF3D6B','#00D4FF','#FFD200','#7CFF6B','#FF8C00','#fff'][Math.floor(Math.random() * 6)],
+    size: 7 + Math.random() * 8,
+    rotate: Math.random() * 360,
+  }));
+  return (
+    <div className="confetti-wrap">
+      {pieces.map(p => (
+        <div key={p.id} className="confetti-p" style={{
+          left: `${p.left}%`, top: `-20px`,
+          width: p.size, height: p.size,
+          background: p.color,
+          animationDelay: `${p.delay}s`,
+          animationDuration: `${p.dur}s`,
+          transform: `rotate(${p.rotate}deg)`,
+          borderRadius: Math.random() > 0.5 ? '50%' : '2px',
+        }} />
+      ))}
+    </div>
+  );
+}
+function EndScreen({ teams, scores, sortedTeams, winner, onPlayAgain, tc }) {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    SFX.winner();
+    const t = setTimeout(() => setShow(true), 100);
+    return () => clearTimeout(t);
+  }, []);
+  const winnerIdx = teams.indexOf(winner);
+  return (
+    <>
+      {show && <Confetti />}
+      <div className="end-screen">
+        <div className="winner-lbl">🏆 Winner</div>
+        <div className="winner-name"
+          style={{ background: `linear-gradient(135deg,${tc(winnerIdx).main},white)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
+          {winner?.name}
+        </div>
+        <div className="winner-score">{scores[winner?.id] || 0} points</div>
+        <div className="final-scores">
+          {sortedTeams.map((t, i) => (
+            <div key={t.id} className="final-row"
+              style={{borderColor: tc(teams.indexOf(t)).main + "40", background: tc(teams.indexOf(t)).dim}}>
+              <div className="final-team" style={{color: tc(teams.indexOf(t)).main}}>
+                {i === 0 ? "🥇 " : i === 1 ? "🥈 " : "🥉 "}{t.name}
+              </div>
+              <div className="final-pts" style={{color: tc(teams.indexOf(t)).main}}>{scores[t.id] || 0}</div>
+            </div> ))}
+        </div>
+        <button className="play-again-btn" onClick={onPlayAgain}>PLAY AGAIN</button>
+      </div>
+    </>
+  );
+}
+
+function PubQuiz() {
+  const [screen, setScreen] = useState("setup");
+  const [teams, setTeams] = useState([{ id: 1, name: "Team 1" }, { id: 2, name: "Team 2" }]);
+  const [categories, setCategories] = useState(DEFAULT_CATS);
+  const [scores, setScores] = useState({});
+  const [rounds, setRounds] = useState([]);
+  const [roundIdx, setRoundIdx] = useState(0);
+  const [qIdx, setQIdx] = useState(0);
+  const [revealed, setRevealed] = useState(false);
+  const [genStatus, setGenStatus] = useState("");
+  const [err, setErr] = useState("");
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [editingList, setEditingList] = useState(false);
+  const [muted, setMuted2] = useState(false);
+  const nextCatId = useRef(10);
+  const rootRef = useRef(null);
+
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen?.();
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen?.();
+      setIsFullscreen(false);
+    }
+  }
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
+
+  function updateTeam(id, val) { setTeams(t => t.map(x => x.id === id ? { ...x, name: val } : x)); }
+  function addTeam() { if (teams.length >= 4) return; setTeams(t => [...t, { id: Date.now(), name: `Team ${t.length + 1}` }]); }
+  function updateCat(id, f, v) { setCategories(c => c.map(x => x.id === id ? { ...x, [f]: v } : x)); }
+  function addCat() { setCategories(c => [...c, { id: nextCatId.current++, name: "", mechanic: "qa", count: 8 }]); }
+  function removeCat(id) { setCategories(c => c.filter(x => x.id !== id)); }
+
+  async function startGame() {
+    if (categories.some(c => !c.name.trim())) { setErr("Name all categories first."); return; }
+    setErr(""); setScreen("generating");
+    const init = {}; teams.forEach(t => { init[t.id] = 0; }); setScores(init);
+    const built = [];
+    for (let i = 0; i < categories.length; i++) {
+      const cat = categories[i];
+      setGenStatus(`Generating "${cat.name}" (${i + 1}/${categories.length})…`);
+      try {
+        if (cat.mechanic === "qa") {
+          const json = await callClaude(
+            `Generate exactly ${cat.count} fun pub-quiz trivia questions about: "${cat.name}". Mix difficulty.
+Respond ONLY with a valid JSON array, no markdown:
+[{ "question": "...", "answer": "..." }]`
+          );
+          built.push({ ...cat, questions: JSON.parse(json) });
+        } else if (cat.mechanic === "tf") {
+          const json = await callClaude(
+            `Generate exactly ${cat.count} true or false pub-quiz statements about: "${cat.name}". Mix true and false roughly 50/50. Make them interesting — avoid obvious ones.
+Respond ONLY with a valid JSON array, no markdown:
+[{ "statement": "...", "answer": true, "explanation": "brief explanation why" }]`
+          );
+          built.push({ ...cat, questions: JSON.parse(json) });
+        } else if (cat.mechanic === "feud") {
+          const json = await callClaude(
+            `Generate exactly ${cat.count || 4} Family Feud style survey questions about: "${cat.name}". For each, generate 6-8 answers ranked most-to-least common. Keep answers short (1-4 words). Respond ONLY with a valid JSON array, no markdown:
+[{ "question": "Name something you find in a fridge", "answers": ["Milk","Leftovers","Juice","Cheese","Vegetables","Condiments"] }]`
+          );
+          built.push({ ...cat, questions: JSON.parse(json) });
+        } else {
+          const json = await callClaude(
+            `Generate a complete, accurate list of items for a Sporcle-style quiz. Category: "${cat.name}".
+
+IMPORTANT: Generate the EXACT correct number of items that exist in this category. For example "NBA Teams" = 30, "US States" = 50, "Countries in South America" = 12. If open-ended (e.g. "90s Movies"), generate 20-30 well-known items.
+
+All items must be well-known and unambiguous. Use the most common short name (e.g. "Lakers" not "Los Angeles Lakers").
+Respond ONLY with a valid JSON array of strings, no markdown:
+["item 1", "item 2", ...]`
+          );
+          built.push({ ...cat, items: JSON.parse(json) });
+
+        }
+      } catch (e) {
+        setErr(`Failed: "${cat.name}" — ${e.message}`); setScreen("setup"); return;
+      }
+    }
+    setRounds(built); setRoundIdx(0); setQIdx(0); setRevealed(false); setScreen("intro");
+  }
+
+  const currentRound = rounds[roundIdx];
+
+  function beginRound() {
+    if (currentRound?.mechanic === "sporcle") { setScreen("sporcle"); }
+    else if (currentRound?.mechanic === "tf") { setQIdx(0); setRevealed(false); setScreen("tf"); }
+    else if (currentRound?.mechanic === "feud") { setQIdx(0); setScreen("feud"); }
+    else { setQIdx(0); setRevealed(false); setScreen("game"); }
+  }
+
+  function awardPoints(teamId, pts) { setScores(s => ({ ...s, [teamId]: (s[teamId] || 0) + pts })); }
+  function adjustPoint(teamId, delta) { setScores(s => ({ ...s, [teamId]: Math.max(0, (s[teamId] || 0) + delta) })); }
+  function setScore(teamId, val) { setScores(s => ({ ...s, [teamId]: val })); }
+
+  function nextQ() {
+    const qs = currentRound?.questions || [];
+    SFX.nextQ();
+    if (qIdx + 1 >= qs.length) advanceRound();
+    else { setQIdx(q => q + 1); setRevealed(false); }
+  }
+
+  function rerollQ() {
+
+    setRounds(rs => rs.map((r, i) => {
+      if (i !== roundIdx || !r.questions) return r;
+      const qs = [...r.questions];
+      const [current] = qs.splice(qIdx, 1);
+      qs.push(current);
+      return { ...r, questions: qs };
+    }));
+    setRevealed(false);
+
+  }
+
+  function advanceRound() {
+    if (roundIdx + 1 >= rounds.length) setScreen("end");
+    else { setRoundIdx(r => r + 1); setQIdx(0); setRevealed(false); setEditingList(false); setScreen("intro"); }
+  }
+
+  function endQuiz() { setScreen("end"); }
+
+  const sortedTeams = [...teams].sort((a, b) => (scores[b.id] || 0) - (scores[a.id] || 0));
+  const winner = sortedTeams[0];
+  const showFsBtn = ["intro", "game", "sporcle", "tf", "feud", "end"].includes(screen);
+
+  return (
+    <>
+      <style>{css}</style>
+      <div className="wrap" ref={rootRef}>
+        {showFsBtn && (
+          <div className="corner-btns">
+            {screen !== "end" && ( <button className="end-quiz-btn" onClick={endQuiz}>⏹ End Quiz</button>
+            )}
+            <button className="mute-btn" onClick={() => { const m = !muted; setMuted2(m); setMuted(m); }} style={muted ? {borderColor:'rgba(255,61,107,0.4)',color:'#FF3D6B'} : {}}> {muted ? "🔇 Muted" : "🔊 Sound"}
+            </button>
+            <button className="fs-btn" onClick={toggleFullscreen}> {isFullscreen ? "⊠ Exit" : "⛶ Full"}
+            </button>
+          </div>
+        )}
+
+        {/* SETUP */}
+        {screen === "setup" && (
+          <div className="setup-card">
+            <div className="brand">QUIZ NIGHT</div>
+            <div className="brand-sub">Host Edition — Pub Quiz Machine</div>
+            <div className="sec-label">Teams</div>
+            <div className="teams-grid"> {teams.map((t, i) => ( <div key={t.id} className="team-input-wrap"> <div className="team-dot" style={{background: tc(i).main}} /> <input className="team-input" style={{borderColor: tc(i).main + "40"}} value={t.name} onChange={e => updateTeam(t.id, e.target.value)} placeholder={`Team ${i + 1}`} /> </div> ))} {teams.length < 4 && <button className="add-team-btn" onClick={addTeam}>+ Add Team</button>}
+            </div>
+            <hr className="divider" />
+            <div className="sec-label">Categories & Rounds</div>
+            <div className="cat-list"> {categories.map((cat, i) => ( <div key={cat.id} className="cat-row"> <input className="cat-input" placeholder={`Category name (e.g. "NBA Teams")`} value={cat.name} onChange={e => updateCat(cat.id, "name", e.target.value)} /> <select className="cat-select" value={cat.mechanic} onChange={e => updateCat(cat.id, "mechanic", e.target.value)}> <option value="qa">Q & A</option> <option value="sporcle">Sporcle</option> <option value="tf">True or False</option> <option value="feud">Family Feud</option> </select> <input className="cat-num" type="number" min={5} max={50} value={cat.count || (cat.mechanic === "sporcle" ? 30 : 8)} onChange={e => updateCat(cat.id, "count", parseInt(e.target.value) || 10)} /> <button className="cat-del" onClick={() => removeCat(cat.id)}>×</button> </div> ))}
+            </div>
+            <button className="add-cat-btn" onClick={addCat}>+ Add Category</button>
+            {err && <div className="err">{err}</div>}
+            <button className="start-btn" onClick={startGame} disabled={!categories.length || teams.length < 2}> GENERATE & START
+            </button>
+          </div>
+        )}
+
+        {/* GENERATING */}
+        {screen === "generating" && (
+          <div className="gen-screen">
+            <div className="gen-spinner" />
+            <div className="gen-text">BUILDING YOUR QUIZ</div>
+            <div className="gen-sub">{genStatus}</div>
+          </div>
+        )}
+
+        {/* INTRO */}
+        {screen === "intro" && currentRound && (
+          <IntroScreen
+            currentRound={currentRound}
+            roundIdx={roundIdx}
+            rounds={rounds}
+            teams={teams}
+            scores={scores}
+            editingList={editingList}
+            setEditingList={setEditingList}
+            setRounds={setRounds}
+            beginRound={beginRound}
+            tc={tc}
+            MECHANIC_LABELS={MECHANIC_LABELS}
+          />
+        )}
+
+        {screen === "game" && currentRound && (
+          <QAScreen currentRound={currentRound} qIdx={qIdx} roundIdx={roundIdx}
+            teams={teams} scores={scores} revealed={revealed} setRevealed={setRevealed}
+            adjustPoint={adjustPoint} setScore={setScore} nextQ={nextQ} rerollQ={rerollQ} tc={tc}/>
+        )}
+
+        {/* TRUE OR FALSE */}
+        {screen === "tf" && currentRound && (
+          <TrueFalseRound
+            currentRound={currentRound}
+            qIdx={qIdx}
+            roundIdx={roundIdx}
+            teams={teams}
+            scores={scores}
+            revealed={revealed}
+            setRevealed={setRevealed}
+            adjustPoint={adjustPoint}
+            setScore={setScore}
+            nextQ={nextQ}
+            rerollQ={rerollQ}
+            tc={tc}
+          />
+        )} {/* SPORCLE ROUND */}
+        {screen === "sporcle" && currentRound && (
+          <SporcleRound
+            round={currentRound}
+            roundIdx={roundIdx}
+            teams={teams}
+            scores={scores}
+            onAdjust={adjustPoint}
+            onSetScore={setScore}
+            onFinish={advanceRound}
+          />
+        )}
+
+        {/* FAMILY FEUD */}
+        {screen === "feud" && currentRound && (
+          <FamilyFeud
+            round={currentRound}
+            qIdx={qIdx}
+            setQIdx={setQIdx}
+            teams={teams}
+            scores={scores}
+            onAdjust={adjustPoint}
+            onSetScore={setScore}
+            onFinish={advanceRound}
+            tc={tc}
+          />
+        )}
+
+        {screen === "end" && (
+          <EndScreen teams={teams} scores={scores} sortedTeams={sortedTeams} winner={winner} onPlayAgain={() => { setScreen("setup"); setRounds([]); setRoundIdx(0); setQIdx(0); setScores({}); }} tc={tc} />
+        )}
+      </div>
+    </>
+  );
+}
+
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(PubQuiz));
+  </script>
+</body>
+</html>
