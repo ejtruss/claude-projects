@@ -494,12 +494,17 @@ function FamilyFeud({round,qIdx,setQIdx,teams,scores,onAdjust,onSetScore,onFinis
   const questions=round.questions||[];
   const q=questions[qIdx]||{};
   const answers=q.answers||[];
-  // nextTeamIdx: rotates each question, skipping nobody — pure round-robin
-  const firstTeamForQ=qIdx%teams.length;
+
+  // Slot machine only on question 0; subsequent questions rotate clockwise from slot winner
+  const [slotWinnerRef] = useState({val:0}); // persists across qIdx changes
+  // For q>0, first team = (slotWinner + qIdx) % teams.length
+  const decideFirstTeam = (w) => (w + qIdx) % teams.length;
+
   const [phase,setPhase]=useState('slot');
-  // slotWinner: who the slot picked (gets play/pass choice)
   const [slotWinner,setSlotWinner]=useState(0);
-  // activeIdx: who is currently playing (may differ if original team passed)
+  // originalPlayerIdx: the team that had the play/pass choice (excluded from stealing their own question)
+  const [originalPlayerIdx,setOriginalPlayerIdx]=useState(0);
+  // activeIdx: who is currently playing or stealing
   const [activeIdx,setActiveIdx]=useState(0);
   // passerIdx: who passed (excluded from steal), null if nobody passed
   const [passerIdx,setPasserIdx]=useState(null);
@@ -513,8 +518,17 @@ function FamilyFeud({round,qIdx,setQIdx,teams,scores,onAdjust,onSetScore,onFinis
   const inputRef=useRef(null);
 
   useEffect(()=>{
-    setPhase('slot');setFound(new Set());setStrikes(0);
-    setInput('');setTried(new Set());setPasserIdx(null);
+    if(qIdx===0){
+      // first question: show slot machine
+      setPhase('slot');
+    } else {
+      // subsequent questions: auto-rotate, skip slot machine
+      const next=decideFirstTeam(slotWinnerRef.val);
+      setActiveIdx(next);
+      setOriginalPlayerIdx(next);
+      setPhase('decision');
+    }
+    setFound(new Set());setStrikes(0);setInput('');setTried(new Set());setPasserIdx(null);
   },[qIdx]);
   useEffect(()=>{if(phase==='playing'||phase==='steal')inputRef.current?.focus();},[phase,activeIdx]);
 
@@ -522,13 +536,18 @@ function FamilyFeud({round,qIdx,setQIdx,teams,scores,onAdjust,onSetScore,onFinis
   function doShake(){setShake(true);setTimeout(()=>setShake(false),500);}
   function doRed(){setRedFlash(true);setTimeout(()=>setRedFlash(false),450);}
 
-  function onSlotDone(w){setSlotWinner(w);setActiveIdx(w);setPhase('decision');}
+  function onSlotDone(w){
+    slotWinnerRef.val=w;
+    setSlotWinner(w);
+    setActiveIdx(w);
+    setOriginalPlayerIdx(w);
+    setPhase('decision');
+  }
 
   function handlePlay(){setPhase('playing');}
   function handlePass(){
-    // original team passes — next team clockwise plays
-    setPasserIdx(slotWinner);
-    const next=(slotWinner+1)%teams.length;
+    setPasserIdx(originalPlayerIdx);
+    const next=(originalPlayerIdx+1)%teams.length;
     setActiveIdx(next);
     setPhase('playing');
   }
@@ -541,7 +560,6 @@ function FamilyFeud({round,qIdx,setQIdx,teams,scores,onAdjust,onSetScore,onFinis
         setFound(next);setInput('');doFlash('correct');
         SFX.tilePop();SFX.point();
         if(next.size>=answers.length){
-          // board cleared — award 3 pts to active team
           onAdjust(teams[activeIdx].id,FEUD_POINTS);
           setPhase('done');setTimeout(()=>SFX.winner(),100);
         }
@@ -560,13 +578,12 @@ function FamilyFeud({round,qIdx,setQIdx,teams,scores,onAdjust,onSetScore,onFinis
           onAdjust(teams[activeIdx].id,FEUD_POINTS);
           setPhase('done');return;
         }
-        // first steal candidate: next after active, skipping passer and active
-        let stealStart=(activeIdx+1)%teams.length;
+        // first steal candidate: next after active, skipping original player
         const skipSet=new Set([activeIdx, passerIdx].filter(x=>x!==null));
-        let checked=0;
+        let stealStart=(activeIdx+1)%teams.length,checked=0;
         while(skipSet.has(stealStart)&&checked<teams.length){stealStart=(stealStart+1)%teams.length;checked++;}
         setActiveIdx(stealStart);
-        setTried(new Set());
+        setTried(new Set([activeIdx])); // mark original player as already used their turn
         SFX.stealTension();
         setPhase('steal');
       },1800);
@@ -578,22 +595,29 @@ function FamilyFeud({round,qIdx,setQIdx,teams,scores,onAdjust,onSetScore,onFinis
     const rem=answers.filter(a=>!found.has(a));
     for(const ans of rem){
       if(fuzzy(input,ans)){
+        // successful steal
         onAdjust(teams[activeIdx].id,FEUD_POINTS);
         setFound(new Set(answers));setInput('');SFX.stealSuccess();setPhase('done');return;
       }
     }
+    // missed steal
     setInput('');SFX.stealMiss();doShake();
     const t=new Set([...tried,activeIdx]);setTried(t);
-    // skip: original player, passer, anyone already tried
     const skipSet=new Set([...t, passerIdx].filter(x=>x!==null));
-    // also skip the team that was playing (not the passer — they already tried)
-    // find next eligible team
     let next=(activeIdx+1)%teams.length,checked=0;
     while(skipSet.has(next)&&checked<teams.length){next=(next+1)%teams.length;checked++;}
-    // if we've gone all the way around with no eligible stealer
-    const eligibleCount=teams.length - (passerIdx!==null?2:1); // minus player, minus passer
-    if(t.size>=eligibleCount||next===activeIdx)setTimeout(()=>setPhase('done'),800);
-    else setTimeout(()=>{setActiveIdx(next);SFX.stealTension();},700);
+    // eligible stealers = all teams minus original player minus passer
+    const eligibleCount=teams.length-(passerIdx!==null?2:1);
+    if(t.size>=eligibleCount||next===originalPlayerIdx){
+      // all steal attempts exhausted — original player gets the points
+      setTimeout(()=>{
+        onAdjust(teams[originalPlayerIdx].id,FEUD_POINTS);
+        SFX.point();
+        setPhase('done');
+      },800);
+    } else {
+      setTimeout(()=>{setActiveIdx(next);SFX.stealTension();},700);
+    }
   }
 
   const rem=answers.filter(a=>!found.has(a));
@@ -624,17 +648,17 @@ function FamilyFeud({round,qIdx,setQIdx,teams,scores,onAdjust,onSetScore,onFinis
 
       {/* Decision phase — play or pass */}
       {phase==='decision'&&(
-        <div style={{background:'var(--surface)',border:`2px solid ${tcS.main}`,borderRadius:14,padding:'22px 26px',textAlign:'center'}}>
+        <div style={{background:'var(--surface)',border:`2px solid ${tc(originalPlayerIdx).main}`,borderRadius:14,padding:'22px 26px',textAlign:'center'}}>
           <div style={{fontFamily:'var(--font-c)',fontSize:11,letterSpacing:3,textTransform:'uppercase',color:'var(--muted)',marginBottom:6}}>Your turn</div>
-          <div style={{fontFamily:'var(--font-d)',fontSize:28,letterSpacing:2,color:tcS.main,marginBottom:18,textTransform:'uppercase'}}>{teams[slotWinner]?.name}</div>
+          <div style={{fontFamily:'var(--font-d)',fontSize:28,letterSpacing:2,color:tc(originalPlayerIdx).main,marginBottom:18,textTransform:'uppercase'}}>{teams[originalPlayerIdx]?.name}</div>
           <div style={{fontFamily:'var(--font-c)',fontSize:13,letterSpacing:1,color:'var(--muted)',marginBottom:22}}>Do you want to play this question or pass to the next team?</div>
           <div style={{display:'flex',gap:12,justifyContent:'center'}}>
             <button onClick={handlePlay}
-              style={{padding:'14px 36px',background:tcS.main,border:'none',borderRadius:10,fontFamily:'var(--font-d)',fontSize:18,letterSpacing:3,color:'#080810',cursor:'pointer'}}>
+              style={{padding:'14px 36px',background:tc(originalPlayerIdx).main,border:'none',borderRadius:10,fontFamily:'var(--font-d)',fontSize:18,letterSpacing:3,color:'#080810',cursor:'pointer'}}>
               PLAY
             </button>
             <button onClick={handlePass}
-              style={{padding:'14px 36px',background:'transparent',border:`1px solid ${tcS.main}60`,borderRadius:10,fontFamily:'var(--font-d)',fontSize:18,letterSpacing:3,color:tcS.main,cursor:'pointer'}}>
+              style={{padding:'14px 36px',background:'transparent',border:`1px solid ${tc(originalPlayerIdx).main}60`,borderRadius:10,fontFamily:'var(--font-d)',fontSize:18,letterSpacing:3,color:tc(originalPlayerIdx).main,cursor:'pointer'}}>
               PASS
             </button>
           </div>
