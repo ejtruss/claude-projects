@@ -195,7 +195,7 @@ const SFX = {
 };
 
 // ── Replace this URL with your Cloudflare Worker URL after setup ──
-const WORKER_URL = "https://crimson-mode-5ecf.trussej.workers.dev/";
+const WORKER_URL = "YOUR_WORKER_URL_HERE";
 
 async function callClaude(prompt) {
   const res = await fetch(WORKER_URL, {
@@ -489,13 +489,20 @@ function SlotMachine({teams,onDone}) {
   );
 }
 const FEUD_STRIKES=3;
+const FEUD_POINTS=3;
 function FamilyFeud({round,qIdx,setQIdx,teams,scores,onAdjust,onSetScore,onFinish,tc}) {
   const questions=round.questions||[];
   const q=questions[qIdx]||{};
   const answers=q.answers||[];
+  // nextTeamIdx: rotates each question, skipping nobody — pure round-robin
+  const firstTeamForQ=qIdx%teams.length;
   const [phase,setPhase]=useState('slot');
+  // slotWinner: who the slot picked (gets play/pass choice)
+  const [slotWinner,setSlotWinner]=useState(0);
+  // activeIdx: who is currently playing (may differ if original team passed)
   const [activeIdx,setActiveIdx]=useState(0);
-  const [firstIdx,setFirstIdx]=useState(0);
+  // passerIdx: who passed (excluded from steal), null if nobody passed
+  const [passerIdx,setPasserIdx]=useState(null);
   const [found,setFound]=useState(new Set());
   const [strikes,setStrikes]=useState(0);
   const [input,setInput]=useState('');
@@ -504,72 +511,145 @@ function FamilyFeud({round,qIdx,setQIdx,teams,scores,onAdjust,onSetScore,onFinis
   const [shake,setShake]=useState(false);
   const [tried,setTried]=useState(new Set());
   const inputRef=useRef(null);
-  useEffect(()=>{setPhase('slot');setFound(new Set());setStrikes(0);setInput('');setTried(new Set());},[qIdx]);
+
+  useEffect(()=>{
+    setPhase('slot');setFound(new Set());setStrikes(0);
+    setInput('');setTried(new Set());setPasserIdx(null);
+  },[qIdx]);
   useEffect(()=>{if(phase==='playing'||phase==='steal')inputRef.current?.focus();},[phase,activeIdx]);
+
   function doFlash(t){setFlash(t);setTimeout(()=>setFlash(null),600);}
   function doShake(){setShake(true);setTimeout(()=>setShake(false),500);}
   function doRed(){setRedFlash(true);setTimeout(()=>setRedFlash(false),450);}
-  function onSlotDone(w){setFirstIdx(w);setActiveIdx(w);setPhase('playing');}
+
+  function onSlotDone(w){setSlotWinner(w);setActiveIdx(w);setPhase('decision');}
+
+  function handlePlay(){setPhase('playing');}
+  function handlePass(){
+    // original team passes — next team clockwise plays
+    setPasserIdx(slotWinner);
+    const next=(slotWinner+1)%teams.length;
+    setActiveIdx(next);
+    setPhase('playing');
+  }
+
   function submitPlay(){
     if(!input.trim())return;
     for(const ans of answers){
       if(!found.has(ans)&&fuzzy(input,ans)){
         const next=new Set([...found,ans]);
         setFound(next);setInput('');doFlash('correct');
-        SFX.tilePop();onAdjust(teams[activeIdx].id,1);SFX.point();
-        if(next.size>=answers.length){setPhase('done');setTimeout(()=>SFX.winner(),100);}
+        SFX.tilePop();SFX.point();
+        if(next.size>=answers.length){
+          // board cleared — award 3 pts to active team
+          onAdjust(teams[activeIdx].id,FEUD_POINTS);
+          setPhase('done');setTimeout(()=>SFX.winner(),100);
+        }
         return;
       }
     }
     strike();
   }
+
   function strike(){
     const s=strikes+1;setStrikes(s);setInput('');doFlash('wrong');doShake();doRed();
     if(s>=FEUD_STRIKES){
       SFX.threeStrikes();
       setTimeout(()=>{
-        if(answers.filter(a=>!found.has(a)).length===0){setPhase('done');return;}
-        setActiveIdx((activeIdx+1)%teams.length);setTried(new Set());SFX.stealTension();setPhase('steal');
+        if(answers.filter(a=>!found.has(a)).length===0){
+          onAdjust(teams[activeIdx].id,FEUD_POINTS);
+          setPhase('done');return;
+        }
+        // first steal candidate: next after active, skipping passer and active
+        let stealStart=(activeIdx+1)%teams.length;
+        const skipSet=new Set([activeIdx, passerIdx].filter(x=>x!==null));
+        let checked=0;
+        while(skipSet.has(stealStart)&&checked<teams.length){stealStart=(stealStart+1)%teams.length;checked++;}
+        setActiveIdx(stealStart);
+        setTried(new Set());
+        SFX.stealTension();
+        setPhase('steal');
       },1800);
     } else SFX.bigWrong();
   }
+
   function submitSteal(){
     if(!input.trim())return;
     const rem=answers.filter(a=>!found.has(a));
     for(const ans of rem){
       if(fuzzy(input,ans)){
-        onAdjust(teams[activeIdx].id,rem.length);setFound(new Set(answers));setInput('');SFX.stealSuccess();setPhase('done');return;
+        onAdjust(teams[activeIdx].id,FEUD_POINTS);
+        setFound(new Set(answers));setInput('');SFX.stealSuccess();setPhase('done');return;
       }
     }
     setInput('');SFX.stealMiss();doShake();
     const t=new Set([...tried,activeIdx]);setTried(t);
+    // skip: original player, passer, anyone already tried
+    const skipSet=new Set([...t, passerIdx].filter(x=>x!==null));
+    // also skip the team that was playing (not the passer — they already tried)
+    // find next eligible team
     let next=(activeIdx+1)%teams.length,checked=0;
-    while((t.has(next)||next===firstIdx)&&checked<teams.length){next=(next+1)%teams.length;checked++;}
-    if(t.size>=teams.length-1||next===firstIdx)setTimeout(()=>setPhase('done'),800);
+    while(skipSet.has(next)&&checked<teams.length){next=(next+1)%teams.length;checked++;}
+    // if we've gone all the way around with no eligible stealer
+    const eligibleCount=teams.length - (passerIdx!==null?2:1); // minus player, minus passer
+    if(t.size>=eligibleCount||next===activeIdx)setTimeout(()=>setPhase('done'),800);
     else setTimeout(()=>{setActiveIdx(next);SFX.stealTension();},700);
   }
+
   const rem=answers.filter(a=>!found.has(a));
   const tcA=tc(activeIdx);
+  const tcS=tc(slotWinner);
   const bc=flash==='correct'?'#4ade80':flash==='wrong'?'#f87171':'rgba(255,255,255,0.15)';
+
   return(
     <div className="sporcle-screen">
       {phase==='slot'&&<SlotMachine teams={teams} onDone={onSlotDone}/>}
       {redFlash&&<div className="feud-red-flash"/>}
       <ScoreBar teams={teams} scores={scores} onAdjust={onAdjust} onSetScore={onSetScore} style={{marginBottom:4}}/>
+
+      {/* Always show the board */}
       <div className="feud-board">
         <div className="feud-question">{q.question}</div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:16}}>
+          <span style={{fontFamily:'var(--font-c)',fontSize:11,letterSpacing:3,textTransform:'uppercase',color:'var(--muted)'}}>This question worth</span>
+          <span style={{fontFamily:'var(--font-d)',fontSize:22,color:'#FFD200',letterSpacing:2}}>{FEUD_POINTS} PTS</span>
+          <span style={{fontFamily:'var(--font-c)',fontSize:11,letterSpacing:3,textTransform:'uppercase',color:'var(--muted)'}}>· winner takes all</span>
+        </div>
         <div className="feud-grid">
           {answers.map((ans,i)=>(
-            <div key={i} className={`feud-tile${found.has(ans)?' found':''}`}>{found.has(ans)?ans:String(i+1)}</div> ))}
+            <div key={i} className={`feud-tile${found.has(ans)?' found':''}`}>{found.has(ans)?ans:String(i+1)}</div>
+          ))}
         </div>
       </div>
+
+      {/* Decision phase — play or pass */}
+      {phase==='decision'&&(
+        <div style={{background:'var(--surface)',border:`2px solid ${tcS.main}`,borderRadius:14,padding:'22px 26px',textAlign:'center'}}>
+          <div style={{fontFamily:'var(--font-c)',fontSize:11,letterSpacing:3,textTransform:'uppercase',color:'var(--muted)',marginBottom:6}}>Your turn</div>
+          <div style={{fontFamily:'var(--font-d)',fontSize:28,letterSpacing:2,color:tcS.main,marginBottom:18,textTransform:'uppercase'}}>{teams[slotWinner]?.name}</div>
+          <div style={{fontFamily:'var(--font-c)',fontSize:13,letterSpacing:1,color:'var(--muted)',marginBottom:22}}>Do you want to play this question or pass to the next team?</div>
+          <div style={{display:'flex',gap:12,justifyContent:'center'}}>
+            <button onClick={handlePlay}
+              style={{padding:'14px 36px',background:tcS.main,border:'none',borderRadius:10,fontFamily:'var(--font-d)',fontSize:18,letterSpacing:3,color:'#080810',cursor:'pointer'}}>
+              PLAY
+            </button>
+            <button onClick={handlePass}
+              style={{padding:'14px 36px',background:'transparent',border:`1px solid ${tcS.main}60`,borderRadius:10,fontFamily:'var(--font-d)',fontSize:18,letterSpacing:3,color:tcS.main,cursor:'pointer'}}>
+              PASS
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Playing phase */}
       {phase==='playing'&&(
         <div className={`feud-panel${shake?' feud-shake':''}`} style={{borderColor:tcA.main,boxShadow:`0 0 24px ${tcA.glow}`}}>
           <div className="feud-panel-label">Playing</div>
           <div className="feud-panel-team" style={{color:tcA.main}}>{teams[activeIdx]?.name}</div>
           <div className="feud-strikes">
             {Array.from({length:FEUD_STRIKES}).map((_,i)=>(
-              <div key={i} className={`feud-pip${i<strikes?' hit':''}`}>{i<strikes?'✗':''}</div> ))}
+              <div key={i} className={`feud-pip${i<strikes?' hit':''}`}>{i<strikes?'✗':''}</div>
+            ))}
           </div>
           <div className="sporcle-input-row">
             <input ref={inputRef} className="sporcle-input" placeholder="Type answer and press Enter…"
@@ -580,10 +660,12 @@ function FamilyFeud({round,qIdx,setQIdx,teams,scores,onAdjust,onSetScore,onFinis
           <div style={{fontFamily:'var(--font-c)',fontSize:11,letterSpacing:2,color:'var(--muted)',marginTop:10}}>{found.size} found · {rem.length} remaining</div>
         </div>
       )}
+
+      {/* Steal phase */}
       {phase==='steal'&&(
         <div className={`steal-banner${shake?' feud-shake':''}`}>
           <div className="steal-title">STEAL!</div>
-          <div className="steal-sub" style={{color:tcA.main}}>{teams[activeIdx]?.name} — one guess for {rem.length} pt{rem.length!==1?'s':''}</div>
+          <div className="steal-sub" style={{color:tcA.main}}>{teams[activeIdx]?.name} — one guess for {FEUD_POINTS} pts</div>
           <div className="sporcle-input-row" style={{maxWidth:500,margin:'0 auto'}}>
             <input ref={inputRef} className="sporcle-input" placeholder="One guess — press Enter…"
               value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submitSteal()}
@@ -592,13 +674,16 @@ function FamilyFeud({round,qIdx,setQIdx,teams,scores,onAdjust,onSetScore,onFinis
           </div>
         </div>
       )}
+
+      {/* Done phase */}
       {phase==='done'&&(
         <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:14,padding:'22px 26px',textAlign:'center'}}>
           <div style={{fontFamily:'var(--font-c)',fontSize:12,letterSpacing:3,textTransform:'uppercase',color:'var(--muted)',marginBottom:10}}>{found.size}/{answers.length} found</div>
           {rem.length>0&&(
             <div style={{display:'flex',flexWrap:'wrap',gap:6,justifyContent:'center',marginBottom:14}}>
               {rem.map((a,i)=><span key={i} style={{padding:'4px 12px',borderRadius:100,background:'rgba(248,113,113,0.1)',border:'1px solid rgba(248,113,113,0.25)',color:'#f87171',fontFamily:'var(--font-c)',fontSize:13}}>{a}</span>)}
-            </div> )}
+            </div>
+          )}
           <button className="ctrl-btn next" onClick={()=>qIdx+1<questions.length?setQIdx(q=>q+1):onFinish()}>
             {qIdx+1<questions.length?'Next Question →':'End Round →'}
           </button>
@@ -690,14 +775,21 @@ function IntroScreen({ currentRound, roundIdx, rounds, teams, scores, editingLis
         />
       )}
       <div className={`intro-screen${slammed ? " slam" : ""}`}>
-        <div className="intro-round-lbl">Round {roundIdx + 1} of {rounds.length}</div>
+        <div className="intro-round-lbl" style={{textAlign:"center"}}>Round {roundIdx + 1} of {rounds.length}</div>
         <div className={`intro-title${slammed ? " slam" : ""}`}
-          style={{ background: `linear-gradient(135deg,${tc(roundIdx).main},white)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
+          style={{ background: `linear-gradient(135deg,${tc(roundIdx).main},white)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", textAlign:"center", display:"block" }}>
           {currentRound.name}
         </div>
-        <div className="intro-badge" style={{opacity: slammed ? 1 : 0, transition: "opacity 0.4s 0.4s"}}>
-          {MECHANIC_LABELS[currentRound.mechanic] || "Q & A"} &nbsp;·&nbsp;
-          {currentRound.mechanic === "sporcle" ? `${currentRound.items?.length} Items` : `${currentRound.questions?.length} Questions`}
+        <div style={{opacity: slammed ? 1 : 0, transition: "opacity 0.4s 0.4s", textAlign:"center"}}>
+          <div className="intro-badge">
+            {MECHANIC_LABELS[currentRound.mechanic] || "Q & A"} &nbsp;·&nbsp;
+            {currentRound.mechanic === "sporcle" ? `${currentRound.items?.length} Items` : `${currentRound.questions?.length} Questions`}
+          </div>
+          {currentRound.mechanic === "feud" && (
+            <div style={{fontFamily:"var(--font-c)",fontSize:12,letterSpacing:3,textTransform:"uppercase",color:"#FFD200",marginTop:8}}>
+              3 pts per question · winner takes all · steal on 3 strikes
+            </div>
+          )}
         </div>
         {roundIdx > 0 && (
           <div className="intro-scores" style={{opacity: slammed ? 1 : 0, transition: "opacity 0.4s 0.5s"}}>
