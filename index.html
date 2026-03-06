@@ -536,8 +536,8 @@ const FEUD_POINTS=3;
 function FamilyFeud({round,qIdx,setQIdx,teams,scores,onAdjust,onSetScore,onFinish,tc,onReroll}) {
   // local questions — initialized from props, updated directly on reroll
   const [localQuestions,setLocalQuestions]=useState(()=>round.questions||[]);
-  // sync if round changes (new game etc)
-  useEffect(()=>{ setLocalQuestions(round.questions||[]); },[round]);
+  // sync only when the round itself changes (new round, new game)
+  useEffect(()=>{ setLocalQuestions(round.questions||[]); },[round.name]);
   const q=localQuestions[qIdx]||{};
   const answers=q.answers||[];
 
