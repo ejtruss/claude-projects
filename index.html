@@ -606,6 +606,7 @@ function FamilyFeud({round,qIdx,setQIdx,teams,scores,onAdjust,onSetScore,onFinis
       setFound(new Set());
       setStrikes(0);strikesRef.current=0;
       setInput('');setTried(new Set());setPasserIdx(null);
+      setActiveIdx(originalPlayerIdx);
       setPhase('decision');
     }catch(e){
       console.error('Reroll error:',e);
