@@ -706,7 +706,7 @@ function FamilyFeud({round,qIdx,setQIdx,teams,scores,onAdjust,onSetScore,onFinis
 
       {/* Always show the board */}
       <div className="feud-board">
-        <div style={{fontFamily:"var(--font-c)",fontSize:11,letterSpacing:3,textTransform:"uppercase",color:"var(--muted)",marginBottom:8}}>Question {qIdx+1} of {questions.length}</div>
+        <div style={{fontFamily:"var(--font-c)",fontSize:11,letterSpacing:3,textTransform:"uppercase",color:"var(--muted)",marginBottom:8}}>Question {qIdx+1} of {localQuestions.length}</div>
         <div className="feud-question">{q.question}</div>
         <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:16}}>
           <span style={{fontFamily:'var(--font-c)',fontSize:11,letterSpacing:3,textTransform:'uppercase',color:'var(--muted)'}}>This question worth</span>
