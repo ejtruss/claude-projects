@@ -243,6 +243,7 @@ Respond ONLY with a JSON object, no markdown: { "question": "Name something...",
   }
   const result = Array.isArray(parsed) ? parsed[0] : parsed;
   if (!result) throw new Error('Empty result from Claude');
+  console.log('generateSingleQuestion result:', JSON.stringify(result));
   return result;
 }
 const DEFAULT_CATS = [
@@ -1170,7 +1171,9 @@ Respond ONLY with a valid JSON array of strings, no markdown:
     const catName = rounds[roundIdx]?.name || '';
     try {
       const newQ = await generateSingleQuestion('feud', catName);
-      if (!newQ || !newQ.question) throw new Error('Bad question shape');
+      console.log('Feud reroll result:', JSON.stringify(newQ));
+      // accept if it has either question or answers
+      if (!newQ || (!newQ.question && !newQ.answers)) throw new Error('Bad question shape: ' + JSON.stringify(newQ));
       // also update parent rounds so it persists if component remounts
       setRounds(rs => rs.map((r, i) => {
         if (i !== roundIdx || !r.questions) return r;
@@ -1178,7 +1181,7 @@ Respond ONLY with a valid JSON array of strings, no markdown:
         qs[qIdx] = newQ;
         return { ...r, questions: qs };
       }));
-      return newQ; // return so FamilyFeud can update local state immediately
+      return newQ;
     } catch(e) { console.error('Feud reroll failed:', e); return null; }
   }
 
