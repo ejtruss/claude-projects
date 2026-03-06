@@ -232,9 +232,18 @@ Respond ONLY with a JSON object, no markdown: { "statement": "...", "answer": tr
 Respond ONLY with a JSON object, no markdown: { "question": "Name something...", "answers": ["...","..."] }`;
   }
   const raw = await callClaude(prompt);
-  const clean = raw.trim().replace(/^```json|^```|```$/gm,'').trim();
-  const parsed = JSON.parse(clean.startsWith('[') ? clean : '[' + clean + ']');
-  return Array.isArray(parsed) ? parsed[0] : parsed;
+  // strip markdown fences if present
+  const clean = raw.trim().replace(/```json\s*/gi,'').replace(/```/g,'').trim();
+  let parsed;
+  try {
+    parsed = JSON.parse(clean);
+  } catch(e) {
+    // try wrapping in array
+    parsed = JSON.parse('[' + clean + ']');
+  }
+  const result = Array.isArray(parsed) ? parsed[0] : parsed;
+  if (!result) throw new Error('Empty result from Claude');
+  return result;
 }
 const DEFAULT_CATS = [
   { id: 1, name: "Pop Culture", mechanic: "qa", count: 8 },
@@ -537,12 +546,14 @@ function FamilyFeud({round,qIdx,setQIdx,teams,scores,onAdjust,onSetScore,onFinis
   const [passerIdx,setPasserIdx]=useState(null);
   const [found,setFound]=useState(new Set());
   const [strikes,setStrikes]=useState(0);
+  const strikesRef=useRef(0); // ref to avoid stale closure in setTimeout
   const [input,setInput]=useState('');
   const [flash,setFlash]=useState(null);
   const [redFlash,setRedFlash]=useState(false);
   const [shake,setShake]=useState(false);
   const [tried,setTried]=useState(new Set());
   const inputRef=useRef(null);
+  const [rerolling,setRerolling]=useState(false);
 
   useEffect(()=>{
     if(qIdx===0){
@@ -555,7 +566,7 @@ function FamilyFeud({round,qIdx,setQIdx,teams,scores,onAdjust,onSetScore,onFinis
       setOriginalPlayerIdx(next);
       setPhase('decision');
     }
-    setFound(new Set());setStrikes(0);setInput('');setTried(new Set());setPasserIdx(null);
+    setFound(new Set());setStrikes(0);strikesRef.current=0;setInput('');setTried(new Set());setPasserIdx(null);setRerolling(false);
   },[qIdx]);
   useEffect(()=>{if(phase==='playing'||phase==='steal')inputRef.current?.focus();},[phase,activeIdx]);
 
@@ -572,6 +583,22 @@ function FamilyFeud({round,qIdx,setQIdx,teams,scores,onAdjust,onSetScore,onFinis
   }
 
   function handlePlay(){setPhase('playing');}
+
+  async function handleReroll(){
+    if(rerolling)return;
+    setRerolling(true);
+    try{
+      if(onReroll) await onReroll();
+    }finally{
+      // reset all turn state — question was swapped, restart turn
+      setFound(new Set());
+      setStrikes(0);strikesRef.current=0;
+      setInput('');setTried(new Set());setPasserIdx(null);
+      // keep same originalPlayerIdx and phase='decision' so same team decides
+      setPhase('decision');
+      setRerolling(false);
+    }
+  }
   function handlePass(){
     setPasserIdx(originalPlayerIdx);
     const next=(originalPlayerIdx+1)%teams.length;
@@ -597,7 +624,9 @@ function FamilyFeud({round,qIdx,setQIdx,teams,scores,onAdjust,onSetScore,onFinis
   }
 
   function strike(){
-    const s=strikes+1;setStrikes(s);setInput('');doFlash('wrong');doShake();doRed();
+    strikesRef.current+=1;
+    const s=strikesRef.current;
+    setStrikes(s);setInput('');doFlash('wrong');doShake();doRed();
     if(s>=FEUD_STRIKES){
       SFX.threeStrikes();
       setTimeout(()=>{
@@ -692,9 +721,9 @@ function FamilyFeud({round,qIdx,setQIdx,teams,scores,onAdjust,onSetScore,onFinis
               style={{padding:'14px 36px',background:'transparent',border:`1px solid ${tc(originalPlayerIdx).main}60`,borderRadius:10,fontFamily:'var(--font-d)',fontSize:18,letterSpacing:3,color:tc(originalPlayerIdx).main,cursor:'pointer'}}>
               PASS
             </button>
-            <button onClick={onReroll}
-              style={{padding:'14px 24px',background:'transparent',border:'1px solid rgba(255,210,0,0.3)',borderRadius:10,fontFamily:'var(--font-d)',fontSize:18,letterSpacing:3,color:'rgba(255,210,0,0.7)',cursor:'pointer'}}>
-              ↺ NEW Q
+            <button onClick={handleReroll} disabled={rerolling}
+              style={{padding:'14px 24px',background:'transparent',border:'1px solid rgba(255,210,0,0.3)',borderRadius:10,fontFamily:'var(--font-d)',fontSize:18,letterSpacing:3,color:rerolling?'rgba(255,210,0,0.3)':'rgba(255,210,0,0.7)',cursor:'pointer'}}>
+              {rerolling?'…':'↺ NEW Q'}
             </button>
           </div>
         </div>
@@ -719,7 +748,7 @@ function FamilyFeud({round,qIdx,setQIdx,teams,scores,onAdjust,onSetScore,onFinis
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:10,gap:8}}>
             <div style={{fontFamily:'var(--font-c)',fontSize:11,letterSpacing:2,color:'var(--muted)'}}>{found.size} found · {rem.length} remaining</div>
             {strikes===0&&found.size===0&&onReroll&&(
-              <button className="ctrl-btn reroll" style={{flex:'0 0 auto',padding:'5px 10px',fontSize:10}} onClick={onReroll}>↺ New Q</button>
+              <button className="ctrl-btn reroll" style={{flex:'0 0 auto',padding:'5px 10px',fontSize:10}} onClick={handleReroll} disabled={rerolling}>{rerolling?'…':'↺ New Q'}</button>
             )}
           </div>
         </div>
@@ -1118,6 +1147,7 @@ Respond ONLY with a valid JSON array of strings, no markdown:
     const catName = rounds[roundIdx]?.name || '';
     try {
       const newQ = await generateSingleQuestion('feud', catName);
+      if (!newQ || !newQ.question) throw new Error('Bad question shape');
       setRounds(rs => rs.map((r, i) => {
         if (i !== roundIdx || !r.questions) return r;
         const qs = [...r.questions];
