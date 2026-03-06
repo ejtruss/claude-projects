@@ -1,17 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Trivio</title>
-  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <style>* { box-sizing: border-box; margin: 0; padding: 0; } body { background: #080810; }</style>
-</head>
-<body>
-  <div id="root"></div>
-  <script type="text/babel" data-presets="react">
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Trivio</title><script src="https://unpkg.com/react@18/umd/react.development.js"></script><script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script><script src="https://unpkg.com/@babel/standalone/babel.min.js"></script><style>* { box-sizing: border-box; margin: 0; padding: 0; } body { background: #080810; }</style></head><body><div id="root"></div><script type="text/babel" data-presets="react">
 const { useState, useRef, useEffect, useCallback } = React;
 
 const TEAM_COLORS = [
@@ -232,14 +219,20 @@ Respond ONLY with a JSON object, no markdown: { "statement": "...", "answer": tr
 Respond ONLY with a JSON object, no markdown: { "question": "Name something...", "answers": ["...","..."] }`;
   }
   const raw = await callClaude(prompt);
+  console.log('Raw Claude response:', raw);
   // strip markdown fences if present
   const clean = raw.trim().replace(/```json\s*/gi,'').replace(/```/g,'').trim();
+  console.log('Cleaned response:', clean);
   let parsed;
   try {
     parsed = JSON.parse(clean);
   } catch(e) {
-    // try wrapping in array
-    parsed = JSON.parse('[' + clean + ']');
+    console.log('First parse failed, trying array wrap. Error:', e.message);
+    try {
+      parsed = JSON.parse('[' + clean + ']');
+    } catch(e2) {
+      throw new Error('JSON parse failed: ' + e2.message + ' Raw: ' + raw.slice(0,200));
+    }
   }
   const result = Array.isArray(parsed) ? parsed[0] : parsed;
   if (!result) throw new Error('Empty result from Claude');
@@ -1365,7 +1358,5 @@ Respond ONLY with a valid JSON array of strings, no markdown:
 }
 
 
-ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(PubQuiz));
-  </script>
-</body>
-</html>
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(PubQuiz));
+</script></body></html>
