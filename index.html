@@ -1,7 +1,6 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Trivio</title><script src="https://unpkg.com/react@18/umd/react.development.js"></script><script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script><script src="https://unpkg.com/@babel/standalone/babel.min.js"></script><style>* { box-sizing: border-box; margin: 0; padding: 0; } body { background: #06060a; }</style></head><body><div id="root"></div><script type="text/babel" data-presets="react">
 const { useState, useRef, useEffect, useCallback } = React;
 
-
 const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@300;400;600;700;900&family=Barlow:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');`;
 
 const TEAM_COLORS = [
@@ -1563,81 +1562,6 @@ function FamilyFeud({round,qIdx,setQIdx,teams,scores,onAdjust,onSetScore,onFinis
           </div>
         </div>
       )}
-    </div>
-  );
-}
-function TrueFalseRound({ currentRound, qIdx, roundIdx, teams, scores, revealed, setRevealed, adjustPoint, setScore, nextQ, rerollQ, tc, onLiveReroll }) {
-  const [ptsDone,setPtsDone]=useState(false);
-  const [rerolling,setRerolling]=useState(false);
-  const [localQ,setLocalQ]=useState(()=>currentRound.questions?.[qIdx]||{});
-  useEffect(()=>{
-    setPtsDone(false);setRerolling(false);
-    setLocalQ(currentRound.questions?.[qIdx]||{});
-    setRevealed(false);
-  },[qIdx]);
-  async function handleLiveReroll(){
-    setRerolling(true);
-    try{
-      const newQ=await onLiveReroll('tf',currentRound.name);
-      if(newQ&&newQ.statement){ setLocalQ(newQ); setRevealed(false); setPtsDone(false); }
-    }finally{ setRerolling(false); }
-  }
-  const q = localQ;
-  return (
-    <div className="game-screen">
-      <ScoreBar teams={teams} scores={scores} onAdjust={adjustPoint} onSetScore={setScore} />
-      <div className="q-card" style={{borderColor: tc(roundIdx).main + "30"}}>
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3,
-          background: `linear-gradient(90deg,${tc(roundIdx).main},transparent)`, borderRadius: "20px 20px 0 0" }} />
-        <div className="round-chip">
-          <div className="round-dot" style={{background: tc(roundIdx).main}} />
-          {currentRound.name} &nbsp;·&nbsp; {qIdx + 1} of {currentRound.questions?.length}
-        </div>
-        <div style={{display: "flex", gap: 12, marginBottom: 24}}>
-          {["TRUE", "FALSE"].map(label => (
-            <div key={label} style={{flex: 1, textAlign: "center", padding: "10px 0", borderRadius: 10, fontFamily: "var(--font-d)", fontSize: 22, letterSpacing: 3, border: revealed ? (label === (q?.answer ? "TRUE" : "FALSE") ? "2px solid #4ade80" : "1px solid rgba(255,255,255,0.06)") : "1px solid rgba(255,255,255,0.1)", background: revealed ? (label === (q?.answer ? "TRUE" : "FALSE") ? "rgba(74,222,128,0.12)" : "rgba(255,255,255,0.02)") : "rgba(255,255,255,0.03)", color: revealed ? (label === (q?.answer ? "TRUE" : "FALSE") ? "#4ade80" : "rgba(255,255,255,0.2)") : "rgba(255,255,255,0.5)", transition: "all 0.3s",}}>{label}</div> ))}
-        </div>
-        <div className="question-display">{q?.statement}</div>
-        <div className="answer-reveal" style={{marginBottom: revealed ? 16 : 24}}>
-          {!revealed
-            ? <button className="answer-hidden" onClick={() => { setRevealed(true); SFX.correct(); }}><span>▶</span> Reveal Answer</button>
-            : (
-              <div style={{display: "flex", flexDirection: "column", gap: 8}}>
-                <div className="answer-shown" style={{fontSize: 22}}>{q?.answer ? "✓ TRUE" : "✗ FALSE"}</div>
-                {q?.explanation && (
-                  <div style={{fontFamily: "var(--font-c)", fontSize: 14, color: "var(--muted)", letterSpacing: 1, padding: "0 4px"}}>
-                    {q.explanation}
-                  </div> )}
-              </div> )}
-        </div>
-        {revealed && (
-          <div style={{display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16}}>
-            {teams.map((t, i) => (
-              <button key={t.id}
-                style={{ flex: 1, minWidth: 100, padding: "10px 14px", border: `1px solid ${tc(i).main}60`,
-                  borderRadius: 8, background: tc(i).dim, color: tc(i).main, fontFamily: "var(--font-c)",
-                  fontSize: 14, fontWeight: 700, letterSpacing: 1, cursor: "pointer", transition: "all 0.12s" }}
-                onMouseOver={e => e.currentTarget.style.background = tc(i).glow}
-                onMouseOut={e => e.currentTarget.style.background = tc(i).dim}
-                onClick={() => { adjustPoint(t.id, 1); SFX.point(); setPtsDone(true); }}>
-                +1 {t.name}
-              </button> ))}
-          </div>
-        )}
-        <div className="host-controls">
-          {!ptsDone&&<button className="ctrl-btn reroll" onClick={handleLiveReroll} disabled={rerolling}>{rerolling?'…':'↺ Reset Q'}</button>}
-          <button className="ctrl-btn next" onClick={nextQ}>
-            {qIdx + 1 >= (currentRound.questions?.length || 0) ? "END ROUND →" : "NEXT QUESTION →"}
-          </button>
-        </div>
-      </div>
-      <div className="q-progress">
-        {Array.from({ length: currentRound.questions?.length || 0 }).map((_, i) => (
-          <span key={i} style={{marginRight: 4, color: i < qIdx ? tc(roundIdx).main : i === qIdx ? "white" : "rgba(255,255,255,0.14)"}}>
-            {i <= qIdx ? "●" : "○"}
-          </span>
-        ))}
-      </div>
     </div>
   );
 }
