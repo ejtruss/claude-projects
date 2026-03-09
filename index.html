@@ -1,5 +1,8 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Trivio</title><script src="https://unpkg.com/react@18/umd/react.development.js"></script><script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script><script src="https://unpkg.com/@babel/standalone/babel.min.js"></script><style>* { box-sizing: border-box; margin: 0; padding: 0; } body { background: #080810; }</style></head><body><div id="root"></div><script type="text/babel" data-presets="react">
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Trivio</title><script src="https://unpkg.com/react@18/umd/react.development.js"></script><script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script><script src="https://unpkg.com/@babel/standalone/babel.min.js"></script><style>* { box-sizing: border-box; margin: 0; padding: 0; } body { background: #06060a; }</style></head><body><div id="root"></div><script type="text/babel" data-presets="react">
 const { useState, useRef, useEffect, useCallback } = React;
+
+
+const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@300;400;600;700;900&family=Barlow:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');`;
 
 const TEAM_COLORS = [
   { main: '#FF3D6B', glow: 'rgba(255,61,107,0.3)', dim: 'rgba(255,61,107,0.12)' },
@@ -243,61 +246,826 @@ const DEFAULT_CATS = [
   { id: 2, name: "NBA Teams", mechanic: "sporcle", count: 30 },
 ];
 
-const css = `@import url('https://fonts.googleapis.com/css2?family=Anton&family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap');*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}:root{--bg:#080810;--surface:#0e0e1a;--border:rgba(255,255,255,0.07);--text:#f0eee8;--muted:rgba(240,238,232,0.4);--font-d:'Anton',sans-serif;--font-ui:'Barlow',sans-serif;--font-c:'Barlow Condensed',sans-serif;}body{background:var(--bg);font-family:var(--font-ui);color:var(--text);}.wrap{min-height:100vh;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;position:relative;overflow:hidden;}.wrap::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:100;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.06) 2px,rgba(0,0,0,0.06) 4px);}.setup-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:44px;width:100%;max-width:700px;z-index:1;position:relative;}.brand{font-family:var(--font-d);font-size:52px;letter-spacing:4px;line-height:1;margin-bottom:4px;background:linear-gradient(135deg,#FF3D6B,#FFD200);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}.brand-sub{font-family:var(--font-c);font-size:12px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);margin-bottom:40px;}.sec-label{font-family:var(--font-c);font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;}.teams-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:28px;}.team-input-wrap{position:relative;display:flex;align-items:center;}.team-dot{position:absolute;left:14px;width:9px;height:9px;border-radius:50%;}.team-input{width:100%;background:#0a0a14;border:1px solid var(--border);border-radius:10px;padding:12px 12px 12px 34px;color:var(--text);font-family:var(--font-c);font-size:15px;font-weight:600;letter-spacing:1px;outline:none;transition:border-color 0.2s;}.team-input::placeholder{color:rgba(240,238,232,0.2);font-weight:400;}.add-team-btn{grid-column:span 2;padding:11px;background:transparent;border:1px dashed rgba(255,255,255,0.1);border-radius:10px;color:var(--muted);font-family:var(--font-c);font-size:13px;letter-spacing:2px;cursor:pointer;transition:all 0.15s;}.add-team-btn:hover{border-color:rgba(255,255,255,0.3);color:var(--text);}.divider{border:none;border-top:1px solid var(--border);margin:0 0 24px;}.cat-list{display:flex;flex-direction:column;gap:10px;margin-bottom:18px;}.cat-row{background:#0a0a14;border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:grid;grid-template-columns:1fr auto auto auto;gap:10px;align-items:center;}.cat-input{background:transparent;border:none;outline:none;color:var(--text);font-family:var(--font-c);font-size:15px;font-weight:600;width:100%;min-width:0;}.cat-input::placeholder{color:rgba(240,238,232,0.2);font-weight:400;}.cat-select{background:#0a0a14;border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:6px 28px 6px 10px;color:var(--text);font-family:var(--font-c);font-size:13px;outline:none;cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(240%2C238%2C232%2C0.5)'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center}.cat-select:focus{border-color:rgba(255,255,255,0.35)}.cat-select option{background:#0e0e1a;color:var(--text)}.cat-num{background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-family:var(--font-c);font-size:13px;width:54px;outline:none;text-align:center;}.cat-del{background:transparent;border:none;color:rgba(255,255,255,0.2);font-size:18px;cursor:pointer;padding:3px 7px;border-radius:4px;transition:all 0.15s;line-height:1;}.cat-del:hover{color:#FF3D6B;background:rgba(255,61,107,0.1);}.add-cat-btn{width:100%;padding:11px;background:transparent;border:1px dashed rgba(255,255,255,0.08);border-radius:10px;color:var(--muted);font-family:var(--font-c);font-size:12px;letter-spacing:2px;cursor:pointer;transition:all 0.15s;margin-bottom:28px;text-transform:uppercase;}.add-cat-btn:hover{border-color:rgba(255,255,255,0.22);color:var(--text);}.start-btn{width:100%;padding:19px;background:linear-gradient(135deg,#FF3D6B,#FF8C00);border:none;border-radius:12px;font-family:var(--font-d);font-size:26px;letter-spacing:4px;color:white;cursor:pointer;transition:all 0.2s;box-shadow:0 0 40px rgba(255,61,107,0.25);}.start-btn:hover{transform:translateY(-2px);box-shadow:0 0 60px rgba(255,61,107,0.45);}.start-btn:disabled{opacity:0.3;cursor:not-allowed;transform:none;box-shadow:none;}.err{color:#FF3D6B;font-family:var(--font-c);font-size:13px;letter-spacing:1px;margin-bottom:12px;}}50%{opacity:1}}.intro-screen{text-align:center;position:relative;z-index:1;}.intro-screen.slam{animation:introSlam 0.5s cubic-bezier(0.2,1.4,0.4,1) both;}@keyframes introSlam{0%{opacity:0;transform:translateY(-60px) scale(1.15)}60%{opacity:1;transform:translateY(4px) scale(0.98)}80%{transform:translateY(-2px) scale(1.01)}100%{transform:translateY(0) scale(1)}}.intro-title.slam{animation:titleSlam 0.45s cubic-bezier(0.15,1.5,0.4,1) 0.1s both;}@keyframes titleSlam{0%{opacity:0;transform:scale(1.4) translateY(-20px)}100%{opacity:1;transform:scale(1) translateY(0)}}.slam-flash{position:fixed;inset:0;background:white;pointer-events:none;z-index:500;animation:flashOut 0.4s ease 0.35s both;}@keyframes flashOut{0%{opacity:0.6}100%{opacity:0}}.intro-round-lbl{font-family:var(--font-c);font-size:13px;letter-spacing:5px;text-transform:uppercase;color:var(--muted);margin-bottom:14px;}.intro-title{font-family:var(--font-d);font-size:clamp(48px,8vw,92px);letter-spacing:3px;line-height:1;margin-bottom:18px;text-transform:uppercase;}.intro-badge{display:inline-block;font-family:var(--font-c);font-size:13px;letter-spacing:3px;text-transform:uppercase;padding:7px 18px;border-radius:100px;border:1px solid rgba(255,255,255,0.13);color:var(--muted);margin-bottom:52px;}.intro-scores{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-bottom:44px;}.intro-score-chip{padding:11px 26px;border-radius:100px;font-family:var(--font-c);font-size:19px;font-weight:700;letter-spacing:2px;}.intro-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:48px;}.begin-btn{padding:17px 56px;border:none;border-radius:12px;font-family:var(--font-d);font-size:21px;letter-spacing:4px;cursor:pointer;transition:all 0.2s;background:white;color:#080810;}.begin-btn:hover{transform:translateY(-2px);box-shadow:0 8px 36px rgba(255,255,255,0.18);}.edit-list-btn{padding:17px 32px;border:1px solid rgba(255,255,255,0.2);border-radius:12px;font-family:var(--font-d);font-size:18px;letter-spacing:3px;cursor:pointer;transition:all 0.2s;background:transparent;color:rgba(255,255,255,0.6);}.edit-list-btn:hover{border-color:rgba(255,255,255,0.5);color:white;transform:translateY(-1px);}to{opacity:1}}.edit-add-input:focus{border-color:#FFD200;}.corner-btns{position:fixed;top:16px;right:16px;z-index:200;display:flex;gap:8px;}.end-quiz-btn{background:rgba(255,61,107,0.08);border:1px solid rgba(255,61,107,0.25);border-radius:8px;padding:8px 14px;color:rgba(255,61,107,0.6);font-family:var(--font-c);font-size:12px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all 0.15s;}.end-quiz-btn:hover{background:rgba(255,61,107,0.15);color:#FF3D6B;border-color:rgba(255,61,107,0.5);}.fs-btn,.mute-btn{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px 14px;color:var(--muted);font-family:var(--font-c);font-size:12px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all 0.15s;}.fs-btn:hover,.mute-btn:hover{background:rgba(255,255,255,0.1);color:var(--text);}.mute-btn.muted{border-color:#FF3D6B50;color:#FF3D6B;background:rgba(255,61,107,0.08);}.confetti-wrap{position:fixed;inset:0;pointer-events:none;z-index:400;overflow:hidden;}.confetti-p{position:absolute;width:10px;height:10px;border-radius:2px;animation:confettiFall linear forwards;}@keyframes confettiFall{0%{transform:translateY(-20px) rotate(0deg) scale(1);opacity:1;}80%{opacity:1;}100%{transform:translateY(110vh) rotate(720deg) scale(0.5);opacity:0;}}@keyframes scoreBump{0%,100%{transform:scale(1)}40%{transform:scale(1.35)}}.score-bump{animation:scoreBump 0.3s ease;}.score-bar{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:4px 0;}.score-chip{display:flex;align-items:center;gap:6px;padding:6px 10px 6px 14px;border-radius:100px;border:1px solid;font-family:var(--font-c);font-size:14px;font-weight:700;letter-spacing:1px;min-width:80px;}.score-chip .pts{font-family:var(--font-d);font-size:18px;line-height:1;min-width:22px;text-align:center;cursor:pointer;border-radius:3px;padding:1px 3px;transition:background 0.1s;}.score-chip .pts:hover{background:rgba(255,255,255,0.1);}.score-edit-input{font-family:var(--font-d);font-size:18px;width:46px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.35);border-radius:4px;color:inherit;text-align:center;outline:none;padding:1px 2px;}.score-adj{display:flex;flex-direction:column;gap:2px;}.score-adj-btn{width:20px;height:14px;background:rgba(255,255,255,0.07);border:none;border-radius:3px;color:rgba(255,255,255,0.45);font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.1s;padding:0;}.score-adj-btn:hover{background:rgba(255,255,255,0.18);color:white;}.game-screen{width:100%;max-width:1100px;position:relative;z-index:1;display:flex;flex-direction:column;gap:18px;}.q-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:44px 48px;position:relative;overflow:hidden;}.round-chip{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-c);font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:22px;}.round-dot{width:6px;height:6px;border-radius:50%;}.question-display{font-family:var(--font-d);font-size:clamp(26px,3.5vw,44px);letter-spacing:1px;line-height:1.2;margin-bottom:32px;text-transform:uppercase;}.answer-hidden{display:flex;align-items:center;gap:10px;padding:15px 20px;background:rgba(255,255,255,0.03);border:1px dashed rgba(255,255,255,0.1);border-radius:10px;cursor:pointer;transition:all 0.15s;font-family:var(--font-c);font-size:14px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:28px;}.answer-hidden:hover{border-color:rgba(255,255,255,0.22);color:var(--text);background:rgba(255,255,255,0.05);}.answer-shown{padding:15px 20px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:10px;font-family:var(--font-d);font-size:30px;letter-spacing:2px;color:#FFD200;animation:revealAns 0.4s cubic-bezier(0.2,1.3,0.4,1);text-transform:uppercase;margin-bottom:28px;box-shadow:0 0 32px rgba(255,210,0,0.2);}@keyframes revealAns{0%{opacity:0;transform:scale(0.88) translateY(8px)}70%{transform:scale(1.03)}100%{opacity:1;transform:scale(1) translateY(0)}}.award-grid{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;}.team-pts-group{flex:1;min-width:140px;display:flex;flex-direction:column;gap:6px;}.team-pts-label{font-family:var(--font-c);font-size:12px;letter-spacing:2px;text-transform:uppercase;text-align:center;padding:4px 0;}.pts-btn-row{display:flex;gap:6px;}.pts-btn{flex:1;padding:12px 8px;border:1px solid;border-radius:8px;background:transparent;font-family:var(--font-d);font-size:18px;letter-spacing:1px;cursor:pointer;transition:all 0.12s;}.pts-btn:hover{transform:translateY(-1px);}.pts-btn.plus{}.pts-btn.minus{opacity:0.55;}.pts-btn.minus:hover{opacity:1;}.host-controls{display:flex;gap:10px;flex-wrap:wrap;}.ctrl-btn{flex:1;padding:13px 14px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:10px;color:var(--muted);font-family:var(--font-c);font-size:13px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all 0.15s;}.ctrl-btn:hover{background:rgba(255,255,255,0.08);color:var(--text);}.ctrl-btn.next{background:rgba(255,255,255,0.07);color:var(--text);font-weight:600;}.ctrl-btn.next:hover{background:rgba(255,255,255,0.13);}.ctrl-btn.reroll{color:rgba(255,210,0,0.4);border-color:rgba(255,210,0,0.12);flex:0 0 auto;padding:7px 12px;font-size:11px;letter-spacing:1px;align-self:center;}.ctrl-btn.reroll:hover{color:#FFD200;border-color:rgba(255,210,0,0.35);background:rgba(255,210,0,0.06);}.q-progress{text-align:center;font-family:var(--font-c);font-size:11px;letter-spacing:3px;color:rgba(240,238,232,0.18);}.sporcle-screen{width:100%;max-width:1100px;position:relative;z-index:1;display:flex;flex-direction:column;gap:16px;}.sporcle-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}.sporcle-title{font-family:var(--font-d);font-size:clamp(28px,4vw,48px);letter-spacing:2px;text-transform:uppercase;}.timer-display{font-family:var(--font-d);font-size:48px;letter-spacing:2px;min-width:90px;text-align:right;}.timer-display.urgent{color:#FF3D6B;animation:timerPulse 0.5s ease-in-out infinite;}@keyframes timerPulse{0%,100%{opacity:1}50%{opacity:0.5}}.sporcle-progress{font-family:var(--font-c);font-size:13px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);}.sporcle-input-row{display:flex;gap:10px;align-items:center;}.sporcle-input{flex:1;background:var(--surface);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:16px 20px;color:var(--text);font-family:var(--font-c);font-size:20px;font-weight:600;letter-spacing:1px;outline:none;transition:border-color 0.2s;}.sporcle-input:focus{border-color:#FFD200;box-shadow:0 0 0 2px rgba(255,210,0,0.15);}.sporcle-input:disabled{opacity:0.4;cursor:not-allowed;}.sporcle-input.flash{animation:inputFlash 0.25s ease;}@keyframes inputFlash{0%,100%{border-color:rgba(255,255,255,0.15)}50%{border-color:#4ade80;box-shadow:0 0 0 2px rgba(74,222,128,0.2)}}.timer-ctrl-btn{padding:14px 20px;border:1px solid var(--border);border-radius:10px;background:transparent;color:var(--muted);font-family:var(--font-c);font-size:13px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all 0.15s;white-space:nowrap;}.timer-ctrl-btn:hover{background:rgba(255,255,255,0.07);color:var(--text);}.timer-ctrl-btn.running{border-color:#FF3D6B50;color:#FF3D6B;}.grid-container{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px 28px;}.grid-label{font-family:var(--font-c);font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:16px;}.answer-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;}.answer-tile{padding:10px 14px;border-radius:8px;font-family:var(--font-c);font-size:14px;font-weight:600;letter-spacing:0.5px;text-align:center;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:rgba(240,238,232,0.18);transition:all 0.3s;min-height:40px;display:flex;align-items:center;justify-content:center;}.answer-tile.revealed{background:rgba(74,222,128,0.12);border-color:rgba(74,222,128,0.35);color:#4ade80;animation:tileReveal 0.35s ease;}@keyframes tileReveal{0%{transform:scale(0.85);opacity:0}60%{transform:scale(1.06)}100%{transform:scale(1);opacity:1}}.sporcle-done{text-align:center;padding:24px 0;}.sporcle-done-score{font-family:var(--font-d);font-size:72px;color:#FFD200;line-height:1;}.sporcle-done-label{font-family:var(--font-c);font-size:14px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:32px;}.sporcle-award-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:20px;}.sporcle-award-btn{padding:14px 28px;border:1px solid;border-radius:10px;background:transparent;font-family:var(--font-d);font-size:18px;letter-spacing:2px;cursor:pointer;transition:all 0.15s;}.sporcle-award-btn:hover{transform:translateY(-1px);}.duel-teams{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:16px;}.duel-card{border:2px solid;border-radius:14px;padding:18px 20px;text-align:center;transition:all 0.25s;}.duel-card.active{transform:scale(1.03);}.duel-card.eliminated{opacity:0.3;filter:grayscale(0.8);}.duel-name{font-family:var(--font-c);font-size:19px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;}.duel-strikes{font-size:22px;letter-spacing:4px;margin-bottom:4px;min-height:32px;}.duel-status{font-family:var(--font-c);font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}.wrong-flash{animation:wrongShake 0.4s ease;}@keyframes wrongShake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}.duel-winner-banner{text-align:center;padding:20px 0 8px;}.duel-winner-name{font-family:var(--font-d);font-size:52px;letter-spacing:3px;text-transform:uppercase;margin-bottom:6px;}.duel-winner-sub{font-family:var(--font-c);font-size:13px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:28px;}60%{transform:scale(1.3)}100%{transform:scale(1)}}100%{opacity:0}}15%,45%,75%{transform:translateX(-10px)}30%,60%,90%{transform:translateX(10px)}}100%{opacity:1;transform:scale(1)}}.end-screen{text-align:center;position:relative;z-index:1;width:100%;max-width:680px;}.winner-lbl{font-family:var(--font-c);font-size:13px;letter-spacing:5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;animation:fadeUp 0.5s ease;}.winner-name{font-family:var(--font-d);font-size:clamp(52px,10vw,108px);letter-spacing:4px;line-height:1;margin-bottom:6px;animation:fadeUp 0.55s ease;text-transform:uppercase;}.winner-score{font-family:var(--font-c);font-size:20px;letter-spacing:3px;color:var(--muted);margin-bottom:44px;animation:fadeUp 0.6s ease;}@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}.final-scores{display:flex;flex-direction:column;gap:10px;margin-bottom:44px;animation:fadeUp 0.7s ease;}.final-row{display:flex;align-items:center;justify-content:space-between;padding:13px 20px;border-radius:10px;border:1px solid;}.final-team{font-family:var(--font-c);font-size:19px;font-weight:700;letter-spacing:2px;text-transform:uppercase;}.final-pts{font-family:var(--font-d);font-size:30px;}.play-again-btn{padding:17px 48px;background:white;border:none;border-radius:12px;font-family:var(--font-d);font-size:21px;letter-spacing:4px;color:#080810;cursor:pointer;transition:all 0.2s;animation:fadeUp 0.8s ease;}.play-again-btn:hover{transform:translateY(-2px);box-shadow:0 8px 36px rgba(255,255,255,0.18);}.feud-board{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px 28px}.feud-question{font-family:var(--font-d);font-size:clamp(20px,3vw,34px);letter-spacing:1px;line-height:1.2;text-transform:uppercase;margin-bottom:20px}.feud-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}.feud-tile{padding:12px 14px;border-radius:8px;font-family:var(--font-c);font-size:14px;font-weight:700;letter-spacing:0.5px;text-align:center;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:rgba(240,238,232,0.18);min-height:44px;display:flex;align-items:center;justify-content:center;transition:all 0.3s}.feud-tile.found{background:rgba(74,222,128,0.12);border-color:rgba(74,222,128,0.35);color:#4ade80;animation:tileReveal 0.35s ease}.feud-panel{border:2px solid;border-radius:14px;padding:18px 22px;transition:all 0.3s}.feud-panel-label{font-family:var(--font-c);font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:4px}.feud-panel-team{font-family:var(--font-d);font-size:26px;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px}.feud-strikes{display:flex;gap:10px;margin-bottom:14px}.feud-pip{width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:14px;transition:all 0.3s}.feud-pip.hit{border-color:#f87171;background:rgba(248,113,113,0.15);animation:pipPop 0.4s ease}@keyframes pipPop{0%{transform:scale(0.4)}60%{transform:scale(1.3)}100%{transform:scale(1)}}.feud-red-flash{position:fixed;inset:0;background:#f87171;pointer-events:none;z-index:500;animation:redFlash 0.45s ease forwards}@keyframes redFlash{0%{opacity:0.5}100%{opacity:0}}.feud-shake{animation:feudShake 0.45s ease}@keyframes feudShake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-10px)}40%,80%{transform:translateX(10px)}}.steal-banner{text-align:center;padding:20px 24px;background:var(--surface);border:2px solid #FFD200;border-radius:16px;animation:stealIn 0.4s cubic-bezier(0.2,1.4,0.4,1)}@keyframes stealIn{0%{opacity:0;transform:scale(0.88)}100%{opacity:1;transform:scale(1)}}.steal-title{font-family:var(--font-d);font-size:clamp(36px,5vw,64px);letter-spacing:4px;color:#FFD200;text-transform:uppercase;margin-bottom:4px}.steal-sub{font-family:var(--font-c);font-size:13px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:18px}.slot-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.93);z-index:600;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px}.slot-lbl{font-family:var(--font-c);font-size:12px;letter-spacing:5px;text-transform:uppercase;color:var(--muted)}.slot-window{background:var(--surface);border:2px solid rgba(255,255,255,0.12);border-radius:16px;padding:20px 56px;min-width:300px;text-align:center;transition:all 0.4s}.slot-name{font-family:var(--font-d);font-size:clamp(36px,6vw,72px);letter-spacing:3px;text-transform:uppercase}.slot-sub{font-family:var(--font-c);font-size:12px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-top:4px;opacity:0;transition:opacity 0.4s}.slot-sub.show{opacity:1}`
+const css = `
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@300;400;600;700;900&family=Barlow:wght@400;500;600&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#06060a;
+  --surface:#0d0d16;
+  --surface2:#131320;
+  --border:rgba(255,255,255,0.07);
+  --border2:rgba(255,255,255,0.12);
+  --text:#f0eee8;
+  --muted:rgba(240,238,232,0.38);
+  --font-d:'Anton',sans-serif;
+  --font-ui:'Barlow',sans-serif;
+  --font-c:'Barlow Condensed',sans-serif;
+}
+body{background:var(--bg);font-family:var(--font-ui);color:var(--text);}
 
-function QAScreen({currentRound,qIdx,roundIdx,teams,scores,revealed,setRevealed,adjustPoint,setScore,nextQ,rerollQ,tc,onLiveReroll}) {
-  const [ptsDone,setPtsDone]=useState(false);
-  const [rerolling,setRerolling]=useState(false);
-  const [localQ,setLocalQ]=useState(()=>currentRound.questions?.[qIdx]||{});
-  useEffect(()=>{
-    setPtsDone(false);setRerolling(false);
-    setLocalQ(currentRound.questions?.[qIdx]||{});
-    setRevealed(false);
-  },[qIdx]);
-  async function handleLiveReroll(){
-    setRerolling(true);
-    try{
-      const newQ=await onLiveReroll('qa',currentRound.name);
-      if(newQ&&newQ.question){ setLocalQ(newQ); setRevealed(false); setPtsDone(false); }
-    }finally{ setRerolling(false); }
-  }
-  return(
-    <div className="game-screen">
-      <ScoreBar teams={teams} scores={scores} onAdjust={adjustPoint} onSetScore={setScore}/>
-      <div className="q-card" style={{borderColor:tc(roundIdx).main+"30"}}>
-        <div style={{position:"absolute",top:0,left:0,right:0,height:3,background:`linear-gradient(90deg,${tc(roundIdx).main},transparent)`,borderRadius:"20px 20px 0 0"}}/>
-        <div className="round-chip">
-          <div className="round-dot" style={{background:tc(roundIdx).main}}/>
-          {currentRound.name} &nbsp;·&nbsp; Q{qIdx+1} of {currentRound.questions?.length}
-        </div>
-        <div className="question-display">{localQ.question}</div>
-        <div className="answer-reveal" style={{marginBottom:revealed?16:24}}>
-          {!revealed
-            ?<button className="answer-hidden" onClick={()=>{setRevealed(true);SFX.correct();}}><span>▶</span> Reveal Answer</button>
-            :<div className="answer-shown">{localQ.answer}</div>}
-        </div>
-        {revealed&&(
-          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:16}}>
-            {teams.map((t,i)=>(
-              <button key={t.id}
-                style={{flex:1,minWidth:100,padding:"10px 14px",border:`1px solid ${tc(i).main}60`,borderRadius:8,background:tc(i).dim,color:tc(i).main,fontFamily:"var(--font-c)",fontSize:14,fontWeight:700,letterSpacing:1,cursor:"pointer",transition:"all 0.12s"}}
-                onMouseOver={e=>e.currentTarget.style.background=tc(i).glow}
-                onMouseOut={e=>e.currentTarget.style.background=tc(i).dim}
-                onClick={()=>{adjustPoint(t.id,1);SFX.point();setPtsDone(true);}}>+1 {t.name}</button>
-            ))}
-          </div>
-        )}
-        <div className="host-controls">
-          {!ptsDone&&<button className="ctrl-btn reroll" onClick={handleLiveReroll} disabled={rerolling}>{rerolling?'…':'↺ Reset Q'}</button>}
-          <button className="ctrl-btn next" onClick={nextQ}>{qIdx+1>=(currentRound.questions?.length||0)?"END ROUND →":"NEXT QUESTION →"}</button>
+/* ── scanline overlay ── */
+.wrap{min-height:100vh;background:var(--bg);display:flex;flex-direction:column;align-items:center;position:relative;overflow:hidden;}
+.wrap::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:100;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.05) 2px,rgba(0,0,0,0.05) 4px);}
+
+/* ── GAME HEADER ── */
+.game-header{
+  position:fixed;top:0;left:0;right:0;z-index:300;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px;height:56px;
+  background:rgba(6,6,10,0.92);
+  border-bottom:1px solid var(--border);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
+.gh-logo{
+  font-family:var(--font-d);font-size:22px;letter-spacing:3px;
+  background:linear-gradient(135deg,#FF3D6B,#FFD200);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  flex-shrink:0;
+}
+.gh-logo span{color:#FF3D6B;-webkit-text-fill-color:#FF3D6B;}
+.gh-scores{display:flex;gap:6px;align-items:center;flex:1;justify-content:center;flex-wrap:wrap;padding:0 12px;}
+.score-pill{
+  display:flex;align-items:center;gap:5px;
+  padding:4px 10px 4px 8px;border-radius:100px;
+  border:1px solid;
+  font-family:var(--font-c);font-size:13px;font-weight:700;letter-spacing:1px;
+  transition:all 0.2s;cursor:default;
+  white-space:nowrap;
+}
+.score-pill.active{
+  border-width:1.5px;
+  box-shadow:0 0 12px var(--pill-glow);
+}
+.score-pill-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.score-pill-name{font-size:12px;opacity:0.85;}
+.score-pill-pts{font-family:var(--font-d);font-size:16px;line-height:1;cursor:pointer;border-radius:3px;padding:1px 3px;transition:background 0.1s;}
+.score-pill-pts:hover{background:rgba(255,255,255,0.12);}
+.score-pill-edit{font-family:var(--font-d);font-size:15px;width:40px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.3);border-radius:3px;color:inherit;text-align:center;outline:none;padding:1px;}
+.gh-gear-btn{
+  width:36px;height:36px;border-radius:8px;
+  background:transparent;border:1px solid var(--border2);
+  color:var(--muted);font-size:16px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all 0.15s;flex-shrink:0;
+}
+.gh-gear-btn:hover,.gh-gear-btn.open{background:rgba(255,255,255,0.08);color:var(--text);}
+
+/* ── SETTINGS TRAY ── */
+.settings-tray{
+  position:fixed;top:56px;right:0;z-index:299;
+  width:260px;
+  background:rgba(13,13,22,0.97);
+  border:1px solid var(--border2);
+  border-top:none;
+  border-radius:0 0 0 14px;
+  padding:16px;
+  backdrop-filter:blur(16px);
+  -webkit-backdrop-filter:blur(16px);
+  display:flex;flex-direction:column;gap:10px;
+  animation:traySlide 0.18s ease;
+}
+@keyframes traySlide{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+.settings-overlay{position:fixed;inset:0;z-index:298;background:rgba(0,0,0,0.4);}
+.tray-btn{
+  width:100%;padding:11px 14px;border-radius:8px;
+  background:rgba(255,255,255,0.04);border:1px solid var(--border);
+  color:var(--muted);font-family:var(--font-c);font-size:13px;letter-spacing:2px;text-transform:uppercase;
+  cursor:pointer;transition:all 0.15s;text-align:left;display:flex;align-items:center;gap:10px;
+}
+.tray-btn:hover{background:rgba(255,255,255,0.09);color:var(--text);}
+.tray-btn.danger{border-color:rgba(255,61,107,0.2);color:rgba(255,61,107,0.55);}
+.tray-btn.danger:hover{background:rgba(255,61,107,0.1);color:#FF3D6B;border-color:rgba(255,61,107,0.45);}
+.tray-btn.muted-on{border-color:rgba(255,61,107,0.35);color:#FF3D6B;background:rgba(255,61,107,0.07);}
+.tray-divider{border:none;border-top:1px solid var(--border);margin:2px 0;}
+
+/* ── QR code modal ── */
+.qr-modal{
+  position:fixed;inset:0;z-index:400;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(0,0,0,0.88);
+}
+.qr-panel{
+  background:var(--surface);border:1px solid var(--border2);
+  border-radius:20px;padding:36px 40px;
+  text-align:center;max-width:360px;width:90%;
+}
+.qr-title{font-family:var(--font-d);font-size:22px;letter-spacing:3px;text-transform:uppercase;margin-bottom:4px;}
+.qr-sub{font-family:var(--font-c);font-size:12px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:20px;}
+.qr-frame{
+  background:white;border-radius:12px;padding:12px;
+  display:inline-block;margin-bottom:16px;
+}
+.qr-url{
+  font-family:var(--font-c);font-size:11px;color:var(--muted);letter-spacing:1px;
+  word-break:break-all;margin-bottom:16px;
+}
+.qr-hint{
+  font-family:var(--font-c);font-size:11px;letter-spacing:2px;text-transform:uppercase;
+  color:#FFD200;opacity:0.7;margin-bottom:16px;
+}
+.qr-btns{display:flex;gap:8px;}
+.qr-btn{
+  flex:1;padding:11px;border-radius:8px;
+  font-family:var(--font-c);font-size:12px;letter-spacing:2px;text-transform:uppercase;
+  cursor:pointer;transition:all 0.15s;border:1px solid var(--border2);
+  background:rgba(255,255,255,0.05);color:var(--muted);
+}
+.qr-btn:hover{background:rgba(255,255,255,0.1);color:var(--text);}
+.qr-btn.copy-done{border-color:rgba(74,222,128,0.4);color:#4ade80;}
+
+/* ── GAME BODY ── */
+.game-body{
+  width:100%;flex:1;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  padding:80px 24px 100px;
+  min-height:100vh;
+}
+
+/* ── Q/A & T/F CINEMA LAYOUT ── */
+.cinema-screen{
+  width:100%;max-width:900px;
+  display:flex;flex-direction:column;
+  align-items:center;
+  position:relative;z-index:1;
+}
+.cinema-eyebrow{
+  font-family:var(--font-c);font-size:11px;letter-spacing:4px;text-transform:uppercase;
+  color:var(--muted);margin-bottom:28px;display:flex;align-items:center;gap:8px;
+}
+.cinema-dot{width:6px;height:6px;border-radius:50%;display:inline-block;}
+.cinema-question{
+  font-family:var(--font-d);
+  font-size:clamp(28px,4.5vw,58px);
+  letter-spacing:1px;line-height:1.15;
+  text-align:center;
+  text-transform:uppercase;
+  margin-bottom:48px;
+  max-width:820px;
+}
+.cinema-tf-badges{display:flex;gap:12px;justify-content:center;margin-bottom:28px;}
+.cinema-tf-badge{
+  padding:10px 32px;border-radius:100px;
+  font-family:var(--font-d);font-size:20px;letter-spacing:3px;
+  border:1px solid;transition:all 0.3s;
+}
+
+/* ── DOCK ── */
+.dock{
+  position:fixed;bottom:0;left:0;right:0;z-index:280;
+  background:rgba(6,6,10,0.95);
+  border-top:1px solid var(--border);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  padding:14px 20px;
+}
+.dock-pre{display:flex;gap:10px;justify-content:center;align-items:center;}
+.dock-post{display:flex;flex-direction:column;gap:10px;}
+.dock-answer-row{
+  padding:14px 22px;
+  background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:12px;
+  font-family:var(--font-d);font-size:clamp(18px,3vw,28px);
+  letter-spacing:2px;color:#FFD200;
+  animation:revealAns 0.35s cubic-bezier(0.2,1.3,0.4,1);
+  text-transform:uppercase;text-align:center;
+}
+.dock-answer-tf{
+  display:flex;gap:10px;align-items:center;
+}
+.dock-explain{
+  font-family:var(--font-c);font-size:13px;color:var(--muted);letter-spacing:1px;
+  text-align:center;padding:0 4px;
+  animation:fadeUp 0.3s ease 0.2s both;
+}
+.dock-pts-row{display:flex;gap:8px;flex-wrap:wrap;}
+.dock-pts-btn{
+  flex:1;min-width:100px;padding:11px 14px;
+  border:1px solid;border-radius:8px;background:transparent;
+  font-family:var(--font-c);font-size:13px;font-weight:700;letter-spacing:1px;
+  cursor:pointer;transition:all 0.12s;
+}
+.dock-pts-btn:hover{transform:translateY(-1px);}
+.dock-ctrl-row{display:flex;gap:8px;align-items:center;}
+.dock-reveal-btn{
+  flex:1;padding:14px 28px;
+  background:rgba(255,255,255,0.07);border:1px solid var(--border2);border-radius:10px;
+  font-family:var(--font-d);font-size:18px;letter-spacing:3px;color:var(--text);
+  cursor:pointer;transition:all 0.15s;text-align:center;
+}
+.dock-reveal-btn:hover{background:rgba(255,255,255,0.13);border-color:rgba(255,255,255,0.25);}
+.dock-next-btn{
+  flex:1;padding:14px 28px;
+  background:rgba(255,255,255,0.09);border:1px solid var(--border2);border-radius:10px;
+  font-family:var(--font-d);font-size:18px;letter-spacing:3px;color:var(--text);
+  cursor:pointer;transition:all 0.15s;text-align:center;
+}
+.dock-next-btn:hover{background:rgba(255,255,255,0.15);}
+.dock-reroll-btn{
+  padding:12px 14px;border-radius:8px;
+  background:transparent;border:1px solid rgba(255,210,0,0.18);
+  color:rgba(255,210,0,0.45);
+  font-family:var(--font-c);font-size:12px;letter-spacing:2px;text-transform:uppercase;
+  cursor:pointer;transition:all 0.15s;white-space:nowrap;flex-shrink:0;
+}
+.dock-reroll-btn:hover{color:#FFD200;border-color:rgba(255,210,0,0.4);background:rgba(255,210,0,0.06);}
+
+/* ── Q PROGRESS DOTS ── */
+.q-dots{
+  display:flex;gap:5px;justify-content:center;margin-bottom:32px;
+}
+.q-dot{
+  width:6px;height:6px;border-radius:50%;
+  transition:all 0.2s;
+}
+
+/* ── SETUP ── */
+.setup-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;}
+.setup-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:44px;width:100%;max-width:700px;z-index:1;position:relative;}
+.brand{font-family:var(--font-d);font-size:52px;letter-spacing:4px;line-height:1;margin-bottom:4px;background:linear-gradient(135deg,#FF3D6B,#FFD200);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.brand span{-webkit-text-fill-color:#FF3D6B;}
+.brand-sub{font-family:var(--font-c);font-size:12px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);margin-bottom:40px;}
+.sec-label{font-family:var(--font-c);font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;}
+.teams-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:28px;}
+.team-input-wrap{position:relative;display:flex;align-items:center;}
+.team-dot{position:absolute;left:14px;width:9px;height:9px;border-radius:50%;}
+.team-input{width:100%;background:#0a0a14;border:1px solid var(--border);border-radius:10px;padding:12px 12px 12px 34px;color:var(--text);font-family:var(--font-c);font-size:15px;font-weight:600;letter-spacing:1px;outline:none;transition:border-color 0.2s;}
+.team-input::placeholder{color:rgba(240,238,232,0.2);font-weight:400;}
+.add-team-btn{grid-column:span 2;padding:11px;background:transparent;border:1px dashed rgba(255,255,255,0.1);border-radius:10px;color:var(--muted);font-family:var(--font-c);font-size:13px;letter-spacing:2px;cursor:pointer;transition:all 0.15s;}
+.add-team-btn:hover{border-color:rgba(255,255,255,0.3);color:var(--text);}
+.divider{border:none;border-top:1px solid var(--border);margin:0 0 24px;}
+.cat-list{display:flex;flex-direction:column;gap:10px;margin-bottom:18px;}
+.cat-row{background:#0a0a14;border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:grid;grid-template-columns:1fr auto auto auto;gap:10px;align-items:center;}
+.cat-input{background:transparent;border:none;outline:none;color:var(--text);font-family:var(--font-c);font-size:15px;font-weight:600;width:100%;min-width:0;}
+.cat-input::placeholder{color:rgba(240,238,232,0.2);font-weight:400;}
+.cat-select{background:#0a0a14;border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:6px 28px 6px 10px;color:var(--text);font-family:var(--font-c);font-size:13px;outline:none;cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(240%2C238%2C232%2C0.5)'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center}
+.cat-select:focus{border-color:rgba(255,255,255,0.35)}
+.cat-select option{background:#0e0e1a;color:var(--text)}
+.cat-num{background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-family:var(--font-c);font-size:13px;width:54px;outline:none;text-align:center;}
+.cat-del{background:transparent;border:none;color:rgba(255,255,255,0.2);font-size:18px;cursor:pointer;padding:3px 7px;border-radius:4px;transition:all 0.15s;line-height:1;}
+.cat-del:hover{color:#FF3D6B;background:rgba(255,61,107,0.1);}
+.add-cat-btn{width:100%;padding:11px;background:transparent;border:1px dashed rgba(255,255,255,0.08);border-radius:10px;color:var(--muted);font-family:var(--font-c);font-size:12px;letter-spacing:2px;cursor:pointer;transition:all 0.15s;margin-bottom:28px;text-transform:uppercase;}
+.add-cat-btn:hover{border-color:rgba(255,255,255,0.22);color:var(--text);}
+.start-btn{width:100%;padding:19px;background:linear-gradient(135deg,#FF3D6B,#FF8C00);border:none;border-radius:12px;font-family:var(--font-d);font-size:26px;letter-spacing:4px;color:white;cursor:pointer;transition:all 0.2s;box-shadow:0 0 40px rgba(255,61,107,0.25);}
+.start-btn:hover{transform:translateY(-2px);box-shadow:0 0 60px rgba(255,61,107,0.45);}
+.start-btn:disabled{opacity:0.3;cursor:not-allowed;transform:none;box-shadow:none;}
+.err{color:#FF3D6B;font-family:var(--font-c);font-size:13px;letter-spacing:1px;margin-bottom:12px;}
+
+/* ── INTRO ── */
+.intro-screen{text-align:center;position:relative;z-index:1;padding:24px;}
+.intro-screen.slam{animation:introSlam 0.5s cubic-bezier(0.2,1.4,0.4,1) both;}
+@keyframes introSlam{0%{opacity:0;transform:translateY(-60px) scale(1.15)}60%{opacity:1;transform:translateY(4px) scale(0.98)}80%{transform:translateY(-2px) scale(1.01)}100%{transform:translateY(0) scale(1)}}
+.intro-title.slam{animation:titleSlam 0.45s cubic-bezier(0.15,1.5,0.4,1) 0.1s both;}
+@keyframes titleSlam{0%{opacity:0;transform:scale(1.4) translateY(-20px)}100%{opacity:1;transform:scale(1) translateY(0)}}
+.slam-flash{position:fixed;inset:0;background:white;pointer-events:none;z-index:500;animation:flashOut 0.4s ease 0.35s both;}
+@keyframes flashOut{0%{opacity:0.6}100%{opacity:0}}
+.intro-round-lbl{font-family:var(--font-c);font-size:13px;letter-spacing:5px;text-transform:uppercase;color:var(--muted);margin-bottom:14px;}
+.intro-title{font-family:var(--font-d);font-size:clamp(48px,8vw,92px);letter-spacing:3px;line-height:1;margin-bottom:18px;text-transform:uppercase;}
+.intro-badge{display:inline-block;font-family:var(--font-c);font-size:13px;letter-spacing:3px;text-transform:uppercase;padding:7px 18px;border-radius:100px;border:1px solid rgba(255,255,255,0.13);color:var(--muted);margin-bottom:52px;}
+.intro-scores{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-bottom:44px;}
+.intro-score-chip{padding:11px 26px;border-radius:100px;font-family:var(--font-c);font-size:19px;font-weight:700;letter-spacing:2px;}
+.intro-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:48px;}
+.begin-btn{padding:17px 56px;border:none;border-radius:12px;font-family:var(--font-d);font-size:21px;letter-spacing:4px;cursor:pointer;transition:all 0.2s;background:white;color:#080810;}
+.begin-btn:hover{transform:translateY(-2px);box-shadow:0 8px 36px rgba(255,255,255,0.18);}
+.edit-list-btn{padding:17px 32px;border:1px solid rgba(255,255,255,0.2);border-radius:12px;font-family:var(--font-d);font-size:18px;letter-spacing:3px;cursor:pointer;transition:all 0.2s;background:transparent;color:rgba(255,255,255,0.6);}
+.edit-list-btn:hover{border-color:rgba(255,255,255,0.5);color:white;transform:translateY(-1px);}
+
+/* ── EDIT LIST OVERLAY ── */
+.edit-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:700;display:flex;align-items:center;justify-content:center;padding:20px;}
+.edit-panel{background:var(--surface);border:1px solid var(--border2);border-radius:18px;padding:32px;width:100%;max-width:520px;max-height:80vh;display:flex;flex-direction:column;gap:16px;}
+.edit-panel-title{font-family:var(--font-d);font-size:28px;letter-spacing:2px;text-transform:uppercase;margin-bottom:2px;}
+.edit-panel-sub{font-family:var(--font-c);font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
+.edit-items{overflow-y:auto;display:flex;flex-direction:column;gap:6px;max-height:280px;}
+.edit-item{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:7px;font-family:var(--font-c);font-size:14px;}
+.edit-item-del{background:transparent;border:none;color:rgba(255,255,255,0.2);font-size:16px;cursor:pointer;padding:2px 6px;border-radius:3px;transition:all 0.1s;}
+.edit-item-del:hover{color:#FF3D6B;background:rgba(255,61,107,0.08);}
+.edit-add-row{display:flex;gap:8px;}
+.edit-add-input{flex:1;background:rgba(255,255,255,0.04);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;color:var(--text);font-family:var(--font-c);font-size:14px;outline:none;transition:border-color 0.2s;}
+.edit-add-input:focus{border-color:#FFD200;}
+.edit-add-btn{padding:10px 18px;background:rgba(255,210,0,0.1);border:1px solid rgba(255,210,0,0.3);border-radius:8px;color:#FFD200;font-family:var(--font-c);font-size:13px;letter-spacing:1px;cursor:pointer;transition:all 0.15s;}
+.edit-add-btn:hover{background:rgba(255,210,0,0.2);}
+.edit-footer{display:flex;gap:8px;justify-content:flex-end;}
+.edit-cancel-btn{padding:10px 20px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:var(--font-c);font-size:13px;letter-spacing:2px;cursor:pointer;}
+.edit-confirm-btn{padding:10px 22px;background:rgba(255,255,255,0.08);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--font-c);font-size:13px;letter-spacing:2px;cursor:pointer;transition:all 0.15s;}
+.edit-confirm-btn:hover{background:rgba(255,255,255,0.14);}
+
+/* ── CONFIRM DIALOG ── */
+.confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:800;display:flex;align-items:center;justify-content:center;}
+.confirm-panel{background:var(--surface);border:1px solid rgba(255,61,107,0.35);border-radius:16px;padding:32px 40px;text-align:center;max-width:340px;}
+.confirm-title{font-family:var(--font-d);font-size:22px;letter-spacing:2px;margin-bottom:10px;}
+.confirm-sub{font-family:var(--font-c);font-size:13px;letter-spacing:1px;color:var(--muted);margin-bottom:24px;}
+.confirm-btns{display:flex;gap:10px;justify-content:center;}
+.confirm-cancel{padding:11px 24px;background:transparent;border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:var(--muted);font-family:var(--font-c);font-size:13px;letter-spacing:2px;cursor:pointer;}
+.confirm-end{padding:11px 24px;background:rgba(255,61,107,0.15);border:1px solid rgba(255,61,107,0.5);border-radius:8px;color:#FF3D6B;font-family:var(--font-c);font-size:13px;letter-spacing:2px;cursor:pointer;}
+
+/* ── SCORE BAR (for sporcle/feud screens) ── */
+.score-bar{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:4px 0;}
+.score-chip{display:flex;align-items:center;gap:6px;padding:6px 10px 6px 14px;border-radius:100px;border:1px solid;font-family:var(--font-c);font-size:14px;font-weight:700;letter-spacing:1px;min-width:80px;}
+.score-chip .pts{font-family:var(--font-d);font-size:18px;line-height:1;min-width:22px;text-align:center;cursor:pointer;border-radius:3px;padding:1px 3px;transition:background 0.1s;}
+.score-chip .pts:hover{background:rgba(255,255,255,0.1);}
+.score-edit-input{font-family:var(--font-d);font-size:18px;width:46px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.35);border-radius:4px;color:inherit;text-align:center;outline:none;padding:1px 2px;}
+.score-adj{display:flex;flex-direction:column;gap:2px;}
+.score-adj-btn{width:20px;height:14px;background:rgba(255,255,255,0.07);border:none;border-radius:3px;color:rgba(255,255,255,0.45);font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.1s;padding:0;}
+.score-adj-btn:hover{background:rgba(255,255,255,0.18);color:white;}
+
+/* ── SPORCLE ── */
+.sporcle-screen{width:100%;max-width:1100px;position:relative;z-index:1;display:flex;flex-direction:column;gap:16px;}
+.sporcle-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+.sporcle-title{font-family:var(--font-d);font-size:clamp(28px,4vw,48px);letter-spacing:2px;text-transform:uppercase;}
+.timer-display{font-family:var(--font-d);font-size:48px;letter-spacing:2px;min-width:90px;text-align:right;}
+.timer-display.urgent{color:#FF3D6B;animation:timerPulse 0.5s ease-in-out infinite;}
+@keyframes timerPulse{0%,100%{opacity:1}50%{opacity:0.5}}
+.sporcle-progress{font-family:var(--font-c);font-size:13px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);}
+.sporcle-input-row{display:flex;gap:10px;align-items:center;}
+.sporcle-input{flex:1;background:var(--surface);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:16px 20px;color:var(--text);font-family:var(--font-c);font-size:20px;font-weight:600;letter-spacing:1px;outline:none;transition:border-color 0.2s;}
+.sporcle-input:focus{border-color:#FFD200;box-shadow:0 0 0 2px rgba(255,210,0,0.15);}
+.sporcle-input:disabled{opacity:0.4;cursor:not-allowed;}
+.sporcle-input.flash{animation:inputFlash 0.25s ease;}
+@keyframes inputFlash{0%,100%{border-color:rgba(255,255,255,0.15)}50%{border-color:#4ade80;box-shadow:0 0 0 2px rgba(74,222,128,0.2)}}
+.timer-ctrl-btn{padding:14px 20px;border:1px solid var(--border);border-radius:10px;background:transparent;color:var(--muted);font-family:var(--font-c);font-size:13px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all 0.15s;white-space:nowrap;}
+.timer-ctrl-btn:hover{background:rgba(255,255,255,0.07);color:var(--text);}
+.timer-ctrl-btn.running{border-color:#FF3D6B50;color:#FF3D6B;}
+.grid-container{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px 28px;}
+.grid-label{font-family:var(--font-c);font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:16px;}
+.answer-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;}
+.answer-tile{padding:10px 14px;border-radius:8px;font-family:var(--font-c);font-size:14px;font-weight:600;letter-spacing:0.5px;text-align:center;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:rgba(240,238,232,0.18);transition:all 0.3s;min-height:40px;display:flex;align-items:center;justify-content:center;}
+.answer-tile.revealed{background:rgba(74,222,128,0.12);border-color:rgba(74,222,128,0.35);color:#4ade80;animation:tileReveal 0.35s ease;}
+@keyframes tileReveal{0%{transform:scale(0.85);opacity:0}60%{transform:scale(1.06)}100%{transform:scale(1);opacity:1}}
+.sporcle-done{text-align:center;padding:24px 0;}
+.sporcle-done-score{font-family:var(--font-d);font-size:72px;color:#FFD200;line-height:1;}
+.sporcle-done-label{font-family:var(--font-c);font-size:14px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:32px;}
+.sporcle-award-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:20px;}
+.sporcle-award-btn{padding:14px 28px;border:1px solid;border-radius:10px;background:transparent;font-family:var(--font-d);font-size:18px;letter-spacing:2px;cursor:pointer;transition:all 0.15s;}
+.sporcle-award-btn:hover{transform:translateY(-1px);}
+
+/* ── SPORCLE DUEL ── */
+.duel-teams{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:16px;}
+.duel-card{border:2px solid;border-radius:14px;padding:18px 20px;text-align:center;transition:all 0.25s;}
+.duel-card.active{transform:scale(1.03);}
+.duel-card.eliminated{opacity:0.3;filter:grayscale(0.8);}
+.duel-name{font-family:var(--font-c);font-size:19px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;}
+.duel-strikes{font-size:22px;letter-spacing:4px;margin-bottom:4px;min-height:32px;}
+.duel-status{font-family:var(--font-c);font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
+.wrong-flash{animation:wrongShake 0.4s ease;}
+@keyframes wrongShake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+
+/* ── FEUD ── */
+.feud-board{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px 28px}
+.feud-question{font-family:var(--font-d);font-size:clamp(20px,3vw,34px);letter-spacing:1px;line-height:1.2;text-transform:uppercase;margin-bottom:20px}
+.feud-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.feud-tile{padding:12px 14px;border-radius:8px;font-family:var(--font-c);font-size:14px;font-weight:700;letter-spacing:0.5px;text-align:center;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:rgba(240,238,232,0.18);min-height:44px;display:flex;align-items:center;justify-content:center;transition:all 0.3s}
+.feud-tile.found{background:rgba(74,222,128,0.12);border-color:rgba(74,222,128,0.35);color:#4ade80;animation:tileReveal 0.35s ease}
+.feud-panel{border:2px solid;border-radius:14px;padding:18px 22px;transition:all 0.3s}
+.feud-panel-label{font-family:var(--font-c);font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.feud-panel-team{font-family:var(--font-d);font-size:26px;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px}
+.feud-strikes{display:flex;gap:10px;margin-bottom:14px}
+.feud-pip{width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:14px;transition:all 0.3s}
+.feud-pip.hit{border-color:#f87171;background:rgba(248,113,113,0.15);animation:pipPop 0.4s ease}
+@keyframes pipPop{0%{transform:scale(0.4)}60%{transform:scale(1.3)}100%{transform:scale(1)}}
+.feud-red-flash{position:fixed;inset:0;background:#f87171;pointer-events:none;z-index:500;animation:redFlash 0.45s ease forwards}
+@keyframes redFlash{0%{opacity:0.5}100%{opacity:0}}
+.feud-shake{animation:feudShake 0.45s ease}
+@keyframes feudShake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-10px)}40%,80%{transform:translateX(10px)}}
+.steal-banner{text-align:center;padding:20px 24px;background:var(--surface);border:2px solid #FFD200;border-radius:16px;animation:stealIn 0.4s cubic-bezier(0.2,1.4,0.4,1)}
+@keyframes stealIn{0%{opacity:0;transform:scale(0.88)}100%{opacity:1;transform:scale(1)}}
+.steal-title{font-family:var(--font-d);font-size:clamp(36px,5vw,64px);letter-spacing:4px;color:#FFD200;text-transform:uppercase;margin-bottom:4px}
+.steal-sub{font-family:var(--font-c);font-size:13px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:18px}
+
+/* ── SLOT MACHINE ── */
+.slot-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.93);z-index:600;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px}
+.slot-lbl{font-family:var(--font-c);font-size:12px;letter-spacing:5px;text-transform:uppercase;color:var(--muted)}
+.slot-window{background:var(--surface);border:2px solid rgba(255,255,255,0.12);border-radius:16px;padding:20px 56px;min-width:300px;text-align:center;transition:all 0.4s}
+.slot-name{font-family:var(--font-d);font-size:clamp(36px,6vw,72px);letter-spacing:3px;text-transform:uppercase}
+.slot-sub{font-family:var(--font-c);font-size:12px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-top:4px;opacity:0;transition:opacity 0.4s}
+.slot-sub.show{opacity:1}
+
+/* ── GENERATING ── */
+.gen-screen{text-align:center;position:relative;z-index:1;}
+.gen-spinner{width:48px;height:48px;border:3px solid rgba(255,255,255,0.08);border-top-color:#FF3D6B;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 24px;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.gen-text{font-family:var(--font-d);font-size:28px;letter-spacing:4px;text-transform:uppercase;margin-bottom:8px;}
+.gen-sub{font-family:var(--font-c);font-size:13px;letter-spacing:2px;color:var(--muted);}
+
+/* ── END SCREEN ── */
+.end-screen{text-align:center;position:relative;z-index:1;width:100%;max-width:680px;padding:24px;}
+.winner-lbl{font-family:var(--font-c);font-size:13px;letter-spacing:5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;animation:fadeUp 0.5s ease;}
+.winner-name{font-family:var(--font-d);font-size:clamp(52px,10vw,108px);letter-spacing:4px;line-height:1;margin-bottom:6px;animation:fadeUp 0.55s ease;text-transform:uppercase;}
+.winner-score{font-family:var(--font-c);font-size:20px;letter-spacing:3px;color:var(--muted);margin-bottom:44px;animation:fadeUp 0.6s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+.final-scores{display:flex;flex-direction:column;gap:10px;margin-bottom:44px;animation:fadeUp 0.7s ease;}
+.final-row{display:flex;align-items:center;justify-content:space-between;padding:13px 20px;border-radius:10px;border:1px solid;}
+.final-team{font-family:var(--font-c);font-size:19px;font-weight:700;letter-spacing:2px;text-transform:uppercase;}
+.final-pts{font-family:var(--font-d);font-size:30px;}
+.play-again-btn{padding:17px 48px;background:white;border:none;border-radius:12px;font-family:var(--font-d);font-size:21px;letter-spacing:4px;color:#080810;cursor:pointer;transition:all 0.2s;animation:fadeUp 0.8s ease;}
+.play-again-btn:hover{transform:translateY(-2px);box-shadow:0 8px 36px rgba(255,255,255,0.18);}
+
+/* ── CONFETTI ── */
+.confetti-wrap{position:fixed;inset:0;pointer-events:none;z-index:400;overflow:hidden;}
+.confetti-p{position:absolute;width:10px;height:10px;border-radius:2px;animation:confettiFall linear forwards;}
+@keyframes confettiFall{0%{transform:translateY(-20px) rotate(0deg) scale(1);opacity:1;}80%{opacity:1;}100%{transform:translateY(110vh) rotate(720deg) scale(0.5);opacity:0;}}
+@keyframes revealAns{0%{opacity:0;transform:scale(0.88) translateY(8px)}70%{transform:scale(1.03)}100%{opacity:1;transform:scale(1) translateY(0)}}
+@keyframes scoreBump{0%,100%{transform:scale(1)}40%{transform:scale(1.35)}}
+.score-bump{animation:scoreBump 0.3s ease;}
+`
+
+// ── HOST SHEET UTILS ──────────────────────────────────────────────────
+function buildHostUrl(rounds) {
+  try {
+    const payload = JSON.stringify(rounds.map(r => ({
+      name: r.name,
+      mechanic: r.mechanic,
+      questions: r.questions || [],
+      items: r.items || [],
+    })));
+    const encoded = btoa(encodeURIComponent(payload));
+    const base = window.location.href.split('?')[0];
+    return `${base}?host=1&d=${encoded}`;
+  } catch(e) { return null; }
+}
+
+function HostSheetPage() {
+  const [rounds, setRounds] = useState([]);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const d = params.get('d');
+      if (!d) { setError('No data found in URL.'); return; }
+      const decoded = JSON.parse(decodeURIComponent(atob(d)));
+      setRounds(decoded);
+    } catch(e) { setError('Could not load host sheet. Rescan the QR code.'); }
+  }, []);
+  if (error) return (
+    <div style={{minHeight:'100vh',background:'#06060a',display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
+      <div style={{fontFamily:'var(--font-c)',fontSize:14,color:'#f87171',letterSpacing:2,textAlign:'center'}}>{error}</div>
+    </div>
+  );
+  if (!rounds.length) return (
+    <div style={{minHeight:'100vh',background:'#06060a',display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div style={{fontFamily:'var(--font-d)',fontSize:24,letterSpacing:4,color:'rgba(255,255,255,0.3)'}}>LOADING…</div>
+    </div>
+  );
+  return (
+    <div style={{minHeight:'100vh',background:'#06060a',color:'#f0eee8',fontFamily:"var(--font-ui)",padding:'0 0 60px'}}>
+      <style>{css}</style>
+      {/* Header */}
+      <div style={{background:'rgba(6,6,10,0.97)',borderBottom:'1px solid rgba(255,255,255,0.08)',padding:'16px 24px',display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,zIndex:10}}>
+        <div style={{fontFamily:'var(--font-d)',fontSize:20,letterSpacing:3,background:'linear-gradient(135deg,#FF3D6B,#FFD200)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>TRIVIO HOST SHEET</div>
+        <div style={{fontFamily:'var(--font-c)',fontSize:11,letterSpacing:3,textTransform:'uppercase',color:'rgba(255,210,0,0.7)',display:'flex',alignItems:'center',gap:6}}>
+          <span style={{fontSize:14}}>↺</span> Refresh if a question was rerolled
         </div>
       </div>
-      <div className="q-progress">
-        {Array.from({length:currentRound.questions?.length||0}).map((_,i)=>(
-          <span key={i} style={{marginRight:4,color:i<qIdx?tc(roundIdx).main:i===qIdx?"white":"rgba(255,255,255,0.14)"}}>{i<=qIdx?"●":"○"}</span>
+      <div style={{maxWidth:800,margin:'0 auto',padding:'32px 24px',display:'flex',flexDirection:'column',gap:40}}>
+        {rounds.map((round, ri) => (
+          <div key={ri}>
+            {/* Round header */}
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:20}}>
+              <div style={{width:3,height:28,background:TEAM_COLORS[ri%4].main,borderRadius:2}}/>
+              <div>
+                <div style={{fontFamily:'var(--font-d)',fontSize:24,letterSpacing:2,textTransform:'uppercase',color:TEAM_COLORS[ri%4].main}}>{round.name}</div>
+                <div style={{fontFamily:'var(--font-c)',fontSize:11,letterSpacing:3,textTransform:'uppercase',color:'rgba(240,238,232,0.35)',marginTop:2}}>
+                  {round.mechanic === 'qa' ? 'Q & A' : round.mechanic === 'tf' ? 'True or False' : round.mechanic === 'feud' ? 'Family Feud' : 'Sporcle'} · {(round.questions||[]).length || (round.items||[]).length} items
+                </div>
+              </div>
+            </div>
+            {/* Questions */}
+            {(round.mechanic === 'qa') && (round.questions||[]).map((q,qi) => (
+              <div key={qi} style={{borderLeft:`2px solid ${TEAM_COLORS[ri%4].main}40`,paddingLeft:16,marginBottom:20}}>
+                <div style={{fontFamily:'var(--font-c)',fontSize:11,letterSpacing:3,textTransform:'uppercase',color:'rgba(240,238,232,0.3)',marginBottom:6}}>Q{qi+1}</div>
+                <div style={{fontFamily:'var(--font-d)',fontSize:18,letterSpacing:1,textTransform:'uppercase',marginBottom:8,lineHeight:1.3}}>{q.question}</div>
+                <div style={{display:'inline-flex',alignItems:'center',gap:8,padding:'6px 14px',background:'rgba(255,210,0,0.08)',border:'1px solid rgba(255,210,0,0.25)',borderRadius:8}}>
+                  <span style={{fontFamily:'var(--font-c)',fontSize:11,letterSpacing:2,textTransform:'uppercase',color:'rgba(255,210,0,0.6)'}}>Answer</span>
+                  <span style={{fontFamily:'var(--font-d)',fontSize:17,color:'#FFD200',letterSpacing:1}}>{q.answer}</span>
+                </div>
+              </div>
+            ))}
+            {(round.mechanic === 'tf') && (round.questions||[]).map((q,qi) => (
+              <div key={qi} style={{borderLeft:`2px solid ${TEAM_COLORS[ri%4].main}40`,paddingLeft:16,marginBottom:20}}>
+                <div style={{fontFamily:'var(--font-c)',fontSize:11,letterSpacing:3,textTransform:'uppercase',color:'rgba(240,238,232,0.3)',marginBottom:6}}>Q{qi+1}</div>
+                <div style={{fontFamily:'var(--font-d)',fontSize:18,letterSpacing:1,textTransform:'uppercase',marginBottom:8,lineHeight:1.3}}>{q.statement}</div>
+                <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+                  <div style={{display:'inline-flex',alignItems:'center',gap:8,padding:'6px 14px',background:q.answer?'rgba(74,222,128,0.08)':'rgba(248,113,113,0.08)',border:`1px solid ${q.answer?'rgba(74,222,128,0.3)':'rgba(248,113,113,0.3)'}`,borderRadius:8}}>
+                    <span style={{fontFamily:'var(--font-d)',fontSize:17,color:q.answer?'#4ade80':'#f87171',letterSpacing:1}}>{q.answer ? '✓ TRUE' : '✗ FALSE'}</span>
+                  </div>
+                  {q.explanation && <span style={{fontFamily:'var(--font-c)',fontSize:13,color:'rgba(240,238,232,0.45)',letterSpacing:0.5,flex:1}}>{q.explanation}</span>}
+                </div>
+              </div>
+            ))}
+            {(round.mechanic === 'feud') && (round.questions||[]).map((q,qi) => (
+              <div key={qi} style={{borderLeft:`2px solid ${TEAM_COLORS[ri%4].main}40`,paddingLeft:16,marginBottom:20}}>
+                <div style={{fontFamily:'var(--font-c)',fontSize:11,letterSpacing:3,textTransform:'uppercase',color:'rgba(240,238,232,0.3)',marginBottom:6}}>Q{qi+1}</div>
+                <div style={{fontFamily:'var(--font-d)',fontSize:18,letterSpacing:1,textTransform:'uppercase',marginBottom:10,lineHeight:1.3}}>{q.question}</div>
+                <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                  {(q.answers||[]).map((ans,ai) => (
+                    <div key={ai} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 12px',background:'rgba(74,222,128,0.07)',border:'1px solid rgba(74,222,128,0.2)',borderRadius:100}}>
+                      <span style={{fontFamily:'var(--font-d)',fontSize:12,color:'rgba(74,222,128,0.5)',minWidth:16}}>#{ai+1}</span>
+                      <span style={{fontFamily:'var(--font-c)',fontSize:14,fontWeight:700,color:'#4ade80',letterSpacing:0.5}}>{ans}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {(round.mechanic === 'sporcle') && (
+              <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                {(round.items||[]).map((item,ii) => (
+                  <span key={ii} style={{padding:'4px 12px',borderRadius:100,background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.1)',fontFamily:'var(--font-c)',fontSize:13,color:'rgba(240,238,232,0.7)'}}>{item}</span>
+                ))}
+              </div>
+            )}
+          </div>
         ))}
       </div>
     </div>
+  );
+}
+
+// ── QR CODE (pure SVG, no lib needed) ────────────────────────────────
+function QRCode({ url, size = 200 }) {
+  // We use a simple iframe pointing to a free QR service
+  // This avoids a heavy library while still working offline-ish
+  const encoded = encodeURIComponent(url);
+  return (
+    <div className="qr-frame">
+      <img
+        src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encoded}&bgcolor=ffffff&color=000000&margin=0`}
+        alt="QR Code"
+        width={180} height={180}
+        style={{display:'block',borderRadius:4}}
+      />
+    </div>
+  );
+}
+
+// ── GAME HEADER ───────────────────────────────────────────────────────
+function GameHeader({ teams, scores, onAdjust, onSetScore, rounds, showGear = true, showQR = false }) {
+  const [trayOpen, setTrayOpen] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [muted, setMutedState] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editVal, setEditVal] = useState('');
+  const editRef = useRef(null);
+  const [copied, setCopied] = useState(false);
+
+  const hostUrl = rounds && rounds.length ? buildHostUrl(rounds) : null;
+
+  useEffect(() => { if (editingId) setTimeout(() => editRef.current?.select(), 50); }, [editingId]);
+
+  function toggleMute() {
+    const m = !muted;
+    setMutedState(m);
+    setMuted(m);
+    setTrayOpen(false);
+  }
+
+  function copyLink() {
+    if (!hostUrl) return;
+    navigator.clipboard.writeText(hostUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  return (
+    <>
+      <header className="game-header">
+        {/* Logo */}
+        <div className="gh-logo">TRI<span>V</span>IO</div>
+
+        {/* Score pills */}
+        <div className="gh-scores">
+          {teams.map((t, i) => {
+            const col = tc(i);
+            return (
+              <div key={t.id} className="score-pill"
+                style={{
+                  '--pill-glow': col.glow,
+                  borderColor: col.main + '50',
+                  background: col.dim,
+                  color: col.main,
+                }}>
+                <div className="score-pill-dot" style={{background: col.main}}/>
+                <span className="score-pill-name">{t.name}</span>
+                {editingId === t.id ? (
+                  <input ref={editRef} className="score-pill-edit"
+                    value={editVal}
+                    onChange={e => setEditVal(e.target.value)}
+                    onBlur={() => { const n=parseInt(editVal); if(!isNaN(n)&&n>=0) onSetScore(t.id,n); setEditingId(null); }}
+                    onKeyDown={e => { if(e.key==='Enter'){const n=parseInt(editVal);if(!isNaN(n)&&n>=0)onSetScore(t.id,n);setEditingId(null);} if(e.key==='Escape')setEditingId(null); }}
+                    style={{color: col.main}}
+                  />
+                ) : (
+                  <span className="score-pill-pts"
+                    title="Click to edit"
+                    onClick={() => { setEditingId(t.id); setEditVal(String(scores[t.id]||0)); }}>
+                    {scores[t.id] || 0}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Gear */}
+        {showGear && (
+          <button className={`gh-gear-btn${trayOpen?' open':''}`} onClick={() => setTrayOpen(o => !o)}>⚙</button>
+        )}
+      </header>
+
+      {/* Settings tray */}
+      {trayOpen && (
+        <>
+          <div className="settings-overlay" onClick={() => setTrayOpen(false)}/>
+          <div className="settings-tray">
+            <button className={`tray-btn${muted?' muted-on':''}`} onClick={toggleMute}>
+              <span>{muted ? '🔇' : '🔊'}</span> {muted ? 'Unmute Sound' : 'Mute Sound'}
+            </button>
+            {hostUrl && (
+              <button className="tray-btn" onClick={() => { setShowQRModal(true); setTrayOpen(false); }}>
+                <span>📋</span> Open Host Sheet
+              </button>
+            )}
+            <hr className="tray-divider"/>
+            <button className="tray-btn" onClick={() => { setTrayOpen(false); if(typeof document!=='undefined'&&document.fullscreenEnabled){if(!document.fullscreenElement){document.documentElement.requestFullscreen?.();}else{document.exitFullscreen?.();}} }}>
+              <span>⛶</span> Toggle Fullscreen
+            </button>
+            <hr className="tray-divider"/>
+            <button className="tray-btn danger" id="end-quiz-tray-btn">
+              <span>⏹</span> End Quiz
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* QR modal */}
+      {showQRModal && hostUrl && (
+        <div className="qr-modal" onClick={() => setShowQRModal(false)}>
+          <div className="qr-panel" onClick={e => e.stopPropagation()}>
+            <div className="qr-title">Host Sheet</div>
+            <div className="qr-sub">Scan on your phone to see all answers</div>
+            <QRCode url={hostUrl}/>
+            <div className="qr-hint">↺ Refresh your phone if a question is rerolled</div>
+            <div className="qr-btns">
+              <button className={`qr-btn${copied?' copy-done':''}`} onClick={copyLink}>
+                {copied ? '✓ Copied!' : '⧉ Copy Link'}
+              </button>
+              <button className="qr-btn" onClick={() => setShowQRModal(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ── QA SCREEN (new cinema layout) ────────────────────────────────────
+function QAScreen({currentRound,qIdx,roundIdx,teams,scores,revealed,setRevealed,adjustPoint,setScore,nextQ,rerollQ,tc,onLiveReroll,rounds,onEndQuizRequest}) {
+  const [ptsDone,setPtsDone]=useState(false);
+  const [rerolling,setRerolling]=useState(false);
+  const [localQ,setLocalQ]=useState(()=>currentRound.questions?.[qIdx]||{});
+  useEffect(()=>{ setPtsDone(false);setRerolling(false); setLocalQ(currentRound.questions?.[qIdx]||{}); setRevealed(false); },[qIdx]);
+  async function handleLiveReroll(){
+    setRerolling(true);
+    try{ const newQ=await onLiveReroll('qa',currentRound.name); if(newQ&&newQ.question){ setLocalQ(newQ); setRevealed(false); setPtsDone(false); } }
+    finally{ setRerolling(false); }
+  }
+  const col = tc(roundIdx);
+  const total = currentRound.questions?.length || 0;
+  return(
+    <>
+      <GameHeader teams={teams} scores={scores} onAdjust={adjustPoint} onSetScore={setScore} rounds={rounds}/>
+      <div className="game-body">
+        <div className="cinema-screen">
+          {/* Eyebrow */}
+          <div className="cinema-eyebrow">
+            <span className="cinema-dot" style={{background:col.main}}/>
+            {currentRound.name} &nbsp;·&nbsp; Q{qIdx+1} of {total}
+          </div>
+          {/* Question */}
+          <div className="cinema-question">{localQ.question}</div>
+          {/* Progress dots */}
+          <div className="q-dots">
+            {Array.from({length:total}).map((_,i)=>(
+              <div key={i} className="q-dot" style={{background: i<qIdx?col.main:i===qIdx?'white':'rgba(255,255,255,0.12)', width: i===qIdx?8:6, height: i===qIdx?8:6}}/>
+            ))}
+          </div>
+        </div>
+      </div>
+      {/* Dock */}
+      <div className="dock">
+        {!revealed ? (
+          <div className="dock-pre">
+            {!ptsDone && <button className="dock-reroll-btn" onClick={handleLiveReroll} disabled={rerolling}>{rerolling?'…':'↺ Reroll'}</button>}
+            <button className="dock-reveal-btn" onClick={()=>{setRevealed(true);SFX.correct();}}>▶ Reveal Answer</button>
+          </div>
+        ) : (
+          <div className="dock-post">
+            <div className="dock-answer-row">{localQ.answer}</div>
+            <div className="dock-pts-row">
+              {teams.map((t,i)=>{
+                const c=tc(i);
+                return(
+                  <button key={t.id} className="dock-pts-btn"
+                    style={{borderColor:c.main+'60',color:c.main,background:c.dim}}
+                    onMouseOver={e=>e.currentTarget.style.background=c.glow}
+                    onMouseOut={e=>e.currentTarget.style.background=c.dim}
+                    onClick={()=>{adjustPoint(t.id,1);SFX.point();setPtsDone(true);}}>
+                    +1 {t.name}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="dock-ctrl-row">
+              {!ptsDone&&<button className="dock-reroll-btn" onClick={handleLiveReroll} disabled={rerolling}>{rerolling?'…':'↺ Reroll'}</button>}
+              <button className="dock-next-btn" onClick={nextQ}>{qIdx+1>=total?'End Round →':'Next Question →'}</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// ── TRUE/FALSE SCREEN ─────────────────────────────────────────────────
+function TrueFalseRound({currentRound,qIdx,roundIdx,teams,scores,revealed,setRevealed,adjustPoint,setScore,nextQ,rerollQ,tc,onLiveReroll,rounds,onEndQuizRequest}) {
+  const [ptsDone,setPtsDone]=useState(false);
+  const [rerolling,setRerolling]=useState(false);
+  const [localQ,setLocalQ]=useState(()=>currentRound.questions?.[qIdx]||{});
+  useEffect(()=>{ setPtsDone(false);setRerolling(false); setLocalQ(currentRound.questions?.[qIdx]||{}); setRevealed(false); },[qIdx]);
+  async function handleLiveReroll(){
+    setRerolling(true);
+    try{ const newQ=await onLiveReroll('tf',currentRound.name); if(newQ&&newQ.statement){ setLocalQ(newQ); setRevealed(false); setPtsDone(false); } }
+    finally{ setRerolling(false); }
+  }
+  const col = tc(roundIdx);
+  const total = currentRound.questions?.length || 0;
+  const q = localQ;
+  const answerIsTrue = q?.answer === true;
+  return(
+    <>
+      <GameHeader teams={teams} scores={scores} onAdjust={adjustPoint} onSetScore={setScore} rounds={rounds}/>
+      <div className="game-body">
+        <div className="cinema-screen">
+          <div className="cinema-eyebrow">
+            <span className="cinema-dot" style={{background:col.main}}/>
+            {currentRound.name} &nbsp;·&nbsp; {qIdx+1} of {total}
+          </div>
+          {/* T/F badges */}
+          <div className="cinema-tf-badges">
+            {['TRUE','FALSE'].map(label => {
+              const isAnswer = label === (answerIsTrue ? 'TRUE' : 'FALSE');
+              return(
+                <div key={label} className="cinema-tf-badge"
+                  style={{
+                    borderColor: revealed ? (isAnswer ? (label==='TRUE'?'rgba(74,222,128,0.5)':'rgba(248,113,113,0.5)') : 'rgba(255,255,255,0.06)') : 'rgba(255,255,255,0.12)',
+                    background: revealed ? (isAnswer ? (label==='TRUE'?'rgba(74,222,128,0.1)':'rgba(248,113,113,0.1)') : 'rgba(255,255,255,0.02)') : 'rgba(255,255,255,0.04)',
+                    color: revealed ? (isAnswer ? (label==='TRUE'?'#4ade80':'#f87171') : 'rgba(255,255,255,0.2)') : 'rgba(255,255,255,0.6)',
+                  }}>
+                  {label}
+                </div>
+              );
+            })}
+          </div>
+          <div className="cinema-question" style={{fontSize:'clamp(24px,3.8vw,50px)'}}>{q?.statement}</div>
+          <div className="q-dots">
+            {Array.from({length:total}).map((_,i)=>(
+              <div key={i} className="q-dot" style={{background: i<qIdx?col.main:i===qIdx?'white':'rgba(255,255,255,0.12)', width: i===qIdx?8:6, height: i===qIdx?8:6}}/>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="dock">
+        {!revealed ? (
+          <div className="dock-pre">
+            {!ptsDone && <button className="dock-reroll-btn" onClick={handleLiveReroll} disabled={rerolling}>{rerolling?'…':'↺ Reroll'}</button>}
+            <button className="dock-reveal-btn" onClick={()=>{setRevealed(true);SFX.correct();}}>▶ Reveal Answer</button>
+          </div>
+        ) : (
+          <div className="dock-post">
+            <div className="dock-answer-row dock-answer-tf">
+              <span style={{color:answerIsTrue?'#4ade80':'#f87171',fontSize:'clamp(18px,2.5vw,28px)'}}>{answerIsTrue?'✓ TRUE':'✗ FALSE'}</span>
+              {q?.explanation && <span style={{fontFamily:'var(--font-c)',fontSize:13,color:'var(--muted)',letterSpacing:0.5,flex:1,marginLeft:12}}>{q.explanation}</span>}
+            </div>
+            <div className="dock-pts-row">
+              {teams.map((t,i)=>{
+                const c=tc(i);
+                return(
+                  <button key={t.id} className="dock-pts-btn"
+                    style={{borderColor:c.main+'60',color:c.main,background:c.dim}}
+                    onMouseOver={e=>e.currentTarget.style.background=c.glow}
+                    onMouseOut={e=>e.currentTarget.style.background=c.dim}
+                    onClick={()=>{adjustPoint(t.id,1);SFX.point();setPtsDone(true);}}>
+                    +1 {t.name}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="dock-ctrl-row">
+              {!ptsDone&&<button className="dock-reroll-btn" onClick={handleLiveReroll} disabled={rerolling}>{rerolling?'…':'↺ Reroll'}</button>}
+              <button className="dock-next-btn" onClick={nextQ}>{qIdx+1>=total?'End Round →':'Next Question →'}</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -432,7 +1200,7 @@ function SporcleRound({round,roundIdx,teams,scores,onAdjust,onSetScore,onFinish}
   const pips=(id)=>{const s=strikes[id]||0;return '❌'.repeat(s)+'○'.repeat(Math.max(0,MAX_STRIKES-s));};
   const bc=lastResult==='correct'?'#4ade80':lastResult==='wrong'?'#f87171':'rgba(255,255,255,0.15)';
   return(
-    <div className="sporcle-screen">
+    <div className="sporcle-screen" style={{paddingTop:24}}>
       <ScoreBar teams={teams} scores={scores} onAdjust={onAdjust} onSetScore={onSetScore} style={{marginBottom:14}}/>
       <div className="duel-teams">
         {teams.map((t,i)=>{
@@ -693,7 +1461,7 @@ function FamilyFeud({round,qIdx,setQIdx,teams,scores,onAdjust,onSetScore,onFinis
   const bc=flash==='correct'?'#4ade80':flash==='wrong'?'#f87171':'rgba(255,255,255,0.15)';
 
   return(
-    <div className="sporcle-screen">
+    <div className="sporcle-screen" style={{paddingTop:24}}>
       {phase==='slot'&&<SlotMachine teams={teams} onDone={onSlotDone}/>}
       {redFlash&&<div className="feud-red-flash"/>}
       <ScoreBar teams={teams} scores={scores} onAdjust={onAdjust} onSetScore={onSetScore} style={{marginBottom:4}}/>
@@ -1193,169 +1961,209 @@ Respond ONLY with a valid JSON array of strings, no markdown:
   const winner = sortedTeams[0];
   const showFsBtn = ["intro", "game", "sporcle", "tf", "feud", "end", "roundsummary"].includes(screen);
 
+  // ── Host sheet detection ──────────────────────────────────
+  const isHostSheet = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('host') === '1';
+  if (isHostSheet) {
+    return <><style>{css}</style><HostSheetPage /></>;
+  }
+
+  // ── End quiz handler wired to tray button ─────────────────
+  useEffect(() => {
+    function handleTrayEnd(e) {
+      if (e.target && e.target.id === 'end-quiz-tray-btn') { setConfirmEnd(true); }
+    }
+    document.addEventListener('click', handleTrayEnd);
+    return () => document.removeEventListener('click', handleTrayEnd);
+  }, []);
+
+  const gameScreens = ["intro","game","sporcle","tf","feud","roundsummary"];
+  const showHeader = gameScreens.includes(screen);
+
   return (
     <>
       <style>{css}</style>
       <div className="wrap" ref={rootRef}>
-        {showFsBtn && (
-          <div className="corner-btns">
-            {screen !== "end" && ( <button className="end-quiz-btn" onClick={()=>setConfirmEnd(true)}>⏹ End Quiz</button>
-            )}
-            {confirmEnd&&(
-              <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',zIndex:800,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>setConfirmEnd(false)}>
-                <div style={{background:'var(--surface)',border:'1px solid rgba(255,61,107,0.4)',borderRadius:16,padding:'32px 40px',textAlign:'center',maxWidth:340}} onClick={e=>e.stopPropagation()}>
-                  <div style={{fontFamily:'var(--font-d)',fontSize:22,letterSpacing:2,marginBottom:10}}>END THE QUIZ?</div>
-                  <div style={{fontFamily:'var(--font-c)',fontSize:13,letterSpacing:1,color:'var(--muted)',marginBottom:24}}>This will end the game and show final scores.</div>
-                  <div style={{display:'flex',gap:10,justifyContent:'center'}}>
-                    <button onClick={()=>setConfirmEnd(false)} style={{padding:'11px 24px',background:'transparent',border:'1px solid rgba(255,255,255,0.2)',borderRadius:8,color:'var(--muted)',fontFamily:'var(--font-c)',fontSize:13,letterSpacing:2,cursor:'pointer'}}>CANCEL</button>
-                    <button onClick={()=>{setConfirmEnd(false);endQuiz();}} style={{padding:'11px 24px',background:'rgba(255,61,107,0.15)',border:'1px solid rgba(255,61,107,0.5)',borderRadius:8,color:'#FF3D6B',fontFamily:'var(--font-c)',fontSize:13,letterSpacing:2,cursor:'pointer'}}>END QUIZ</button>
-                  </div>
-                </div>
+
+        {/* ── Game header (fixed, shown during game) ── */}
+        {showHeader && (
+          <GameHeader
+            teams={teams}
+            scores={scores}
+            onAdjust={adjustPoint}
+            onSetScore={setScore}
+            rounds={rounds}
+          />
+        )}
+
+        {/* ── Confirm end dialog ── */}
+        {confirmEnd && (
+          <div className="confirm-overlay" onClick={()=>setConfirmEnd(false)}>
+            <div className="confirm-panel" onClick={e=>e.stopPropagation()}>
+              <div className="confirm-title">END THE QUIZ?</div>
+              <div className="confirm-sub">This will end the game and show final scores.</div>
+              <div className="confirm-btns">
+                <button className="confirm-cancel" onClick={()=>setConfirmEnd(false)}>CANCEL</button>
+                <button className="confirm-end" onClick={()=>{setConfirmEnd(false);endQuiz();}}>END QUIZ</button>
               </div>
-            )}
-            <button className="mute-btn" onClick={() => { const m = !muted; setMuted2(m); setMuted(m); }} style={muted ? {borderColor:'rgba(255,61,107,0.4)',color:'#FF3D6B'} : {}}> {muted ? "🔇 Muted" : "🔊 Sound"}
-            </button>
-            {typeof document!=='undefined'&&document.fullscreenEnabled&&(
-              <button className="fs-btn" onClick={toggleFullscreen}>{isFullscreen?"⊠ Exit Full":"⛶ Fullscreen"}</button>
-            )}
+            </div>
           </div>
         )}
 
         {/* SETUP */}
         {screen === "setup" && (
-          <div className="setup-card">
-            <div className="brand">TRIVIO</div>
-            <div className="brand-sub">AI Trivia & Game Night Generator</div>
-            <div className="sec-label">Teams</div>
-            <div className="teams-grid"> {teams.map((t, i) => ( <div key={t.id} className="team-input-wrap"> <div className="team-dot" style={{background: tc(i).main}} /> <input className="team-input" style={{borderColor: tc(i).main + "40"}} value={t.name} onChange={e => updateTeam(t.id, e.target.value)} placeholder={`Team ${i + 1}`} /> {teams.length > 2 && <button className="cat-del" style={{position:'absolute',right:8}} onClick={()=>setTeams(ts=>ts.filter(x=>x.id!==t.id))}>×</button>} </div> ))} {teams.length < 4 && <button className="add-team-btn" onClick={addTeam}>+ Add Team</button>}
+          <div className="setup-wrap">
+            <div className="setup-card">
+              <div className="brand">TRI<span>V</span>IO</div>
+              <div className="brand-sub">AI Trivia & Game Night Generator</div>
+              <div className="sec-label">Teams</div>
+              <div className="teams-grid">
+                {teams.map((t, i) => (
+                  <div key={t.id} className="team-input-wrap">
+                    <div className="team-dot" style={{background: tc(i).main}} />
+                    <input className="team-input" style={{borderColor: tc(i).main + "40"}} value={t.name} onChange={e => updateTeam(t.id, e.target.value)} placeholder={`Team ${i + 1}`} />
+                    {teams.length > 2 && <button className="cat-del" style={{position:'absolute',right:8}} onClick={()=>setTeams(ts=>ts.filter(x=>x.id!==t.id))}>×</button>}
+                  </div>
+                ))}
+                {teams.length < 4 && <button className="add-team-btn" onClick={addTeam}>+ Add Team</button>}
+              </div>
+              <hr className="divider" />
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+                <div className="sec-label" style={{marginBottom:0}}>Categories & Rounds</div>
+                <button onClick={randomizeCats} style={{background:"transparent",border:"1px solid rgba(255,255,255,0.12)",borderRadius:6,padding:"4px 10px",color:"var(--muted)",fontFamily:"var(--font-c)",fontSize:11,letterSpacing:2,textTransform:"uppercase",cursor:"pointer"}}>🎲 Randomize</button>
+              </div>
+              <div className="cat-list">
+                {categories.map((cat, i) => (
+                  <div key={cat.id} className="cat-row">
+                    <input className="cat-input" placeholder={`Category name (e.g. "NBA Teams")`} value={cat.name} onChange={e => updateCat(cat.id, "name", e.target.value)} />
+                    <select className="cat-select" value={cat.mechanic} onChange={e => updateCat(cat.id, "mechanic", e.target.value)}>
+                      <option value="qa">Q & A</option><option value="sporcle">Sporcle</option><option value="tf">True or False</option><option value="feud">Family Feud</option>
+                    </select>
+                    <input className="cat-num" type="number" min={1} max={50} value={cat.count ?? ''} onChange={e=>{const v=e.target.value;updateCat(cat.id,"count",v===''?'':Math.max(1,parseInt(v)||1));}} onBlur={e=>{if(e.target.value==='')updateCat(cat.id,"count",1);}} />
+                    <button className="cat-del" onClick={() => removeCat(cat.id)}>×</button>
+                  </div>
+                ))}
+              </div>
+              <button className="add-cat-btn" onClick={addCat}>+ Add Category</button>
+              {err && <div className="err">{err}</div>}
+              <button className="start-btn" onClick={startGame} disabled={false}>GENERATE & START</button>
             </div>
-            <hr className="divider" />
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-              <div className="sec-label" style={{marginBottom:0}}>Categories & Rounds</div>
-              <button onClick={randomizeCats} style={{background:"transparent",border:"1px solid rgba(255,255,255,0.12)",borderRadius:6,padding:"4px 10px",color:"var(--muted)",fontFamily:"var(--font-c)",fontSize:11,letterSpacing:2,textTransform:"uppercase",cursor:"pointer"}}>🎲 Randomize</button>
-            </div>
-            <div className="cat-list"> {categories.map((cat, i) => ( <div key={cat.id} className="cat-row"> <input className="cat-input" placeholder={`Category name (e.g. "NBA Teams")`} value={cat.name} onChange={e => updateCat(cat.id, "name", e.target.value)} /> <select className="cat-select" value={cat.mechanic} onChange={e => updateCat(cat.id, "mechanic", e.target.value)}> <option value="qa">Q & A</option> <option value="sporcle">Sporcle</option> <option value="tf">True or False</option> <option value="feud">Family Feud</option> </select> <input className="cat-num" type="number" min={1} max={50} value={cat.count ?? ''} onChange={e=>{const v=e.target.value;updateCat(cat.id,"count",v===''?'':Math.max(1,parseInt(v)||1));}} onBlur={e=>{if(e.target.value==='')updateCat(cat.id,"count",1);}} /> <button className="cat-del" onClick={() => removeCat(cat.id)}>×</button> </div> ))}
-            </div>
-            <button className="add-cat-btn" onClick={addCat}>+ Add Category</button>
-            {err && <div className="err">{err}</div>}
-            <button className="start-btn" onClick={startGame} disabled={false}> GENERATE & START
-            </button>
           </div>
         )}
 
         {/* GENERATING */}
         {screen === "generating" && (
-          <div className="gen-screen">
-            <div className="gen-spinner" />
-            <div className="gen-text">BUILDING YOUR QUIZ</div>
-            <div className="gen-sub">{genStatus}</div>
+          <div className="game-body">
+            <div className="gen-screen">
+              <div className="gen-spinner" />
+              <div className="gen-text">BUILDING YOUR QUIZ</div>
+              <div className="gen-sub">{genStatus}</div>
+            </div>
           </div>
         )}
 
         {/* ROUND SUMMARY */}
         {screen === "roundsummary" && currentRound && (
-          <div style={{textAlign:"center",zIndex:1,position:"relative",width:"100%",maxWidth:560}}>
-            <div style={{fontFamily:"var(--font-c)",fontSize:11,letterSpacing:4,textTransform:"uppercase",color:"var(--muted)",marginBottom:8}}>Round {roundIdx+1} Complete</div>
-            <div style={{fontFamily:"var(--font-d)",fontSize:"clamp(36px,6vw,52px)",letterSpacing:2,textTransform:"uppercase",marginBottom:6,background:`linear-gradient(135deg,${tc(roundIdx).main},white)`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text"}}>{currentRound.name}</div>
-            <div style={{display:"flex",flexDirection:"column",gap:8,margin:"24px 0",width:"100%"}}>
-              {[...teams].sort((a,b)=>(scores[b.id]||0)-(scores[a.id]||0)).map((t,rank)=>{
-                const i=teams.indexOf(t);
-                const total=scores[t.id]||0;
-                return(
-                  <div key={t.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 20px",borderRadius:10,border:`1px solid ${tc(i).main}40`,background:tc(i).dim}}>
-                    <div style={{display:"flex",alignItems:"center",gap:10}}>
-                      <span style={{fontFamily:"var(--font-d)",fontSize:20,color:tc(i).main,minWidth:28}}>{rank===0?"🥇":rank===1?"🥈":rank===2?"🥉":"#"+(rank+1)}</span>
-                      <span style={{fontFamily:"var(--font-c)",fontSize:16,fontWeight:700,letterSpacing:1,color:tc(i).main,textTransform:"uppercase"}}>{t.name}</span>
+          <div className="game-body">
+            <div style={{textAlign:"center",zIndex:1,position:"relative",width:"100%",maxWidth:560}}>
+              <div style={{fontFamily:"var(--font-c)",fontSize:11,letterSpacing:4,textTransform:"uppercase",color:"var(--muted)",marginBottom:8}}>Round {roundIdx+1} Complete</div>
+              <div style={{fontFamily:"var(--font-d)",fontSize:"clamp(36px,6vw,52px)",letterSpacing:2,textTransform:"uppercase",marginBottom:6,background:`linear-gradient(135deg,${tc(roundIdx).main},white)`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text"}}>{currentRound.name}</div>
+              <div style={{display:"flex",flexDirection:"column",gap:8,margin:"24px 0",width:"100%"}}>
+                {[...teams].sort((a,b)=>(scores[b.id]||0)-(scores[a.id]||0)).map((t,rank)=>{
+                  const i=teams.indexOf(t);
+                  return(
+                    <div key={t.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 20px",borderRadius:10,border:`1px solid ${tc(i).main}40`,background:tc(i).dim}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10}}>
+                        <span style={{fontFamily:"var(--font-d)",fontSize:20,color:tc(i).main,minWidth:28}}>{rank===0?"🥇":rank===1?"🥈":rank===2?"🥉":"#"+(rank+1)}</span>
+                        <span style={{fontFamily:"var(--font-c)",fontSize:16,fontWeight:700,letterSpacing:1,color:tc(i).main,textTransform:"uppercase"}}>{t.name}</span>
+                      </div>
+                      <span style={{fontFamily:"var(--font-d)",fontSize:26,color:tc(i).main}}>{scores[t.id]||0} pts</span>
                     </div>
-                    <span style={{fontFamily:"var(--font-d)",fontSize:26,color:tc(i).main}}>{total} pts</span>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+              <button className="begin-btn" style={{background:"white",color:"#080810"}} onClick={continueFromSummary}>
+                {roundIdx+1>=rounds.length?"See Final Results →":"Next Round →"}
+              </button>
             </div>
-            <button className="begin-btn" style={{background:"white",color:"#080810"}} onClick={continueFromSummary}>
-              {roundIdx+1>=rounds.length?"See Final Results →":"Next Round →"}
-            </button>
           </div>
         )}
 
         {/* INTRO */}
         {screen === "intro" && currentRound && (
-          <IntroScreen
-            currentRound={currentRound}
-            roundIdx={roundIdx}
-            rounds={rounds}
-            teams={teams}
-            scores={scores}
-            editingList={editingList}
-            setEditingList={setEditingList}
-            setRounds={setRounds}
-            beginRound={beginRound}
-            tc={tc}
-            MECHANIC_LABELS={MECHANIC_LABELS}
-          />
+          <div className="game-body">
+            <IntroScreen
+              currentRound={currentRound}
+              roundIdx={roundIdx}
+              rounds={rounds}
+              teams={teams}
+              scores={scores}
+              editingList={editingList}
+              setEditingList={setEditingList}
+              setRounds={setRounds}
+              beginRound={beginRound}
+              tc={tc}
+              MECHANIC_LABELS={MECHANIC_LABELS}
+            />
+          </div>
         )}
 
+        {/* Q&A */}
         {screen === "game" && currentRound && (
           <QAScreen currentRound={currentRound} qIdx={qIdx} roundIdx={roundIdx}
             teams={teams} scores={scores} revealed={revealed} setRevealed={setRevealed}
             adjustPoint={adjustPoint} setScore={setScore} nextQ={nextQ} rerollQ={rerollQ} tc={tc}
-            onLiveReroll={liveRerollQ}/>
+            onLiveReroll={liveRerollQ} rounds={rounds}/>
         )}
 
         {/* TRUE OR FALSE */}
         {screen === "tf" && currentRound && (
           <TrueFalseRound
-            currentRound={currentRound}
-            qIdx={qIdx}
-            roundIdx={roundIdx}
-            teams={teams}
-            scores={scores}
-            revealed={revealed}
-            setRevealed={setRevealed}
-            adjustPoint={adjustPoint}
-            setScore={setScore}
-            nextQ={nextQ}
-            rerollQ={rerollQ}
-            tc={tc}
-            onLiveReroll={liveRerollQ}
-          />
-        )} {/* SPORCLE ROUND */}
+            currentRound={currentRound} qIdx={qIdx} roundIdx={roundIdx}
+            teams={teams} scores={scores} revealed={revealed} setRevealed={setRevealed}
+            adjustPoint={adjustPoint} setScore={setScore} nextQ={nextQ} rerollQ={rerollQ} tc={tc}
+            onLiveReroll={liveRerollQ} rounds={rounds}/>
+        )}
+
+        {/* SPORCLE */}
         {screen === "sporcle" && currentRound && (
-          <SporcleRound
-            round={currentRound}
-            roundIdx={roundIdx}
-            teams={teams}
-            scores={scores}
-            onAdjust={adjustPoint}
-            onSetScore={setScore}
-            onFinish={advanceRound}
-          />
+          <div className="game-body" style={{justifyContent:'flex-start',paddingTop:80}}>
+            <SporcleRound
+              round={currentRound} roundIdx={roundIdx}
+              teams={teams} scores={scores}
+              onAdjust={adjustPoint} onSetScore={setScore}
+              onFinish={advanceRound}
+            />
+          </div>
         )}
 
         {/* FAMILY FEUD */}
         {screen === "feud" && currentRound && (
-          <FamilyFeud
-            round={currentRound}
-            qIdx={qIdx}
-            setQIdx={setQIdx}
-            teams={teams}
-            scores={scores}
-            onAdjust={adjustPoint}
-            onSetScore={setScore}
-            onFinish={advanceRound}
-            tc={tc}
-            onReroll={liveRerollFeudQ}
-          />
+          <div className="game-body" style={{justifyContent:'flex-start',paddingTop:80}}>
+            <FamilyFeud
+              round={currentRound} qIdx={qIdx} setQIdx={setQIdx}
+              teams={teams} scores={scores}
+              onAdjust={adjustPoint} onSetScore={setScore}
+              onFinish={advanceRound} tc={tc}
+              onReroll={liveRerollFeudQ}
+            />
+          </div>
         )}
 
+        {/* END */}
         {screen === "end" && (
-          <EndScreen teams={teams} scores={scores} sortedTeams={sortedTeams} winner={winner} onPlayAgain={() => { setScreen("setup"); setRounds([]); setRoundIdx(0); setQIdx(0); setScores({}); }} tc={tc} />
+          <div className="game-body">
+            <EndScreen teams={teams} scores={scores} sortedTeams={sortedTeams} winner={winner}
+              onPlayAgain={() => { setScreen("setup"); setRounds([]); setRoundIdx(0); setQIdx(0); setScores({}); }}
+              tc={tc} />
+          </div>
         )}
+
       </div>
     </>
   );
 }
 
 
-ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(PubQuiz));
+ReactDOM.createRoot(document.getElementById('root')).render(<PubQuiz />);
+
 </script></body></html>
