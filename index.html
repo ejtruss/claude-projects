@@ -2386,64 +2386,25 @@ function PubQuiz() {
         if (cat.mechanic === "qa") {
           const seed = Math.random().toString(36).slice(2,8);
           const json = await callClaude(
-            `[seed:${seed}] Generate exactly ${cat.count} trivia questions about: "${cat.name}". ${crowdContext()}
-
-Rules:
-- Write every question in plain, conversational language — like a fun bar trivia host would ask it
-- Tailor difficulty and references to the crowd context if provided
-- Vary difficulty: ~1/3 easy (crowd will know), ~1/3 medium (half the room), ~1/3 surprising (feels familiar but trips people up)
-- Avoid the single most obvious questions for this topic
-- Answers should be short: 1-5 words max
-- No two questions should feel similar in structure or subtopic
-- Do not start questions with "Which" — use "Who", "What", "In what year", "How many", "Where"
-- Add a little personality to the phrasing — it should feel like a real host wrote it
-
-Respond ONLY with a valid JSON array, no markdown:
-[{ "question": "...", "answer": "..." }]`
+            '[seed:'+seed+'] Generate exactly '+cat.count+' trivia questions about: "'+cat.name+'". '+crowdContext()+' Rules: write in plain conversational language like a fun bar trivia host. Vary difficulty: easy/medium/surprising mix. Avoid the most obvious questions. Answers 1-5 words. No two questions alike. No "Which" openers. Add personality. Respond ONLY valid JSON array no markdown: [{ "question": "...", "answer": "..." }]'
           );
           built.push({ ...cat, questions: JSON.parse(json) });
         } else if (cat.mechanic === "tf") {
           const seed = Math.random().toString(36).slice(2,8);
           const json = await callClaude(
-            `[seed:${seed}] Generate exactly ${cat.count} true or false statements about: "${cat.name}". ${crowdContext()}
-
-Rules:
-- Write as punchy, confident statements — things that sound believable whether they are or not
-- Mix true and false roughly 50/50
-- The best ones: things most people are confident about but are wrong
-- Explanations: 1-2 sentences, genuinely interesting or surprising, not just "that's false because..."
-- Calibrate to the crowd context if provided
-- Never start with "It is true that..." — just state the fact directly
-
-Respond ONLY with a valid JSON array, no markdown:
-[{ "statement": "...", "answer": true, "explanation": "..." }]`
+            '[seed:'+seed+'] Generate exactly '+cat.count+' true or false statements about: "'+cat.name+'". '+crowdContext()+' Rules: punchy confident statements that sound believable. 50/50 true/false mix. Best ones: things people are confident about but are wrong. Explanations 1-2 sentences, genuinely interesting. Calibrate to crowd. Never start with "It is true that". Respond ONLY valid JSON array no markdown: [{ "statement": "...", "answer": true, "explanation": "..." }]'
           );
           built.push({ ...cat, questions: JSON.parse(json) });
         } else if (cat.mechanic === "feud") {
           const seed = Math.random().toString(36).slice(2,8);
           const json = await callClaude(
-            `[seed:${seed}] Generate exactly ${cat.count || 4} Family Feud style survey questions about: "${cat.name}". ${crowdContext()}
-Rules: vary the style — name a thing, a place, something you'd do, something you'd say. Make answers feel like real survey responses from real people. Keep answers short (1-4 words), ranked most-to-least common. Calibrate relatability to crowd context.
-Respond ONLY with a valid JSON array, no markdown:
-[{ "question": "Name something you find in a fridge", "answers": ["Milk","Leftovers","Juice","Cheese","Vegetables","Condiments"] }]`
+            '[seed:'+seed+'] Generate exactly '+(cat.count||4)+' Family Feud survey questions about: "'+cat.name+'". '+crowdContext()+' Vary style: name a thing, place, something you would do or say. Answers feel like real survey responses, short 1-4 words, ranked most to least common. Respond ONLY valid JSON array no markdown: [{ "question": "Name something you find in a fridge", "answers": ["Milk","Leftovers","Juice","Cheese","Vegetables","Condiments"] }]'
           );
           built.push({ ...cat, questions: JSON.parse(json) });
         } else {
           const seed = Math.random().toString(36).slice(2,8);
           const json = await callClaude(
-            `[seed:${seed}] Generate exactly ${cat.count || 4} Sporcle-style list questions about: "${cat.name}".
-
-Each question should ask players to name a complete, well-known set of things. The number of answers per question should match the natural size of that set (e.g. "Name all 30 NBA Teams" = 30 answers, "Name the 7 continents" = 7 answers, "Name all 8 planets" = 8 answers).
-
-Rules:
-- Questions should vary in answer count — don't make them all the same size
-- Use the most common short name for answers (e.g. "Lakers" not "Los Angeles Lakers")
-- All answers must be well-known and unambiguous
-- The question text should be phrased naturally, e.g. "Name all 30 NBA Teams" or "Name the 7 continents"
-- Mix different subtopics within the category
-
-Respond ONLY with a valid JSON array, no markdown:
-[{ "question": "Name all 30 NBA Teams", "answers": ["Lakers","Celtics",...] }]`
+            '[seed:'+seed+'] Generate exactly '+(cat.count||4)+' Sporcle-style list questions about: "'+cat.name+'". Each question asks players to name a complete well-known set. Answer count matches natural set size (NBA Teams=30, continents=7, planets=8). Vary answer counts across questions. Use short common names. All answers well-known and unambiguous. Respond ONLY valid JSON array no markdown: [{ "question": "Name all 30 NBA Teams", "answers": ["Lakers","Celtics"] }]'
           );
           built.push({ ...cat, questions: JSON.parse(json) });
 
