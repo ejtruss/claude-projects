@@ -2199,7 +2199,7 @@ function RoundSummary({ currentRound, roundIdx, rounds, teams, scores, prevRound
     // Generate banter via Claude
     const pts = sorted.map(t=>`${t.name}: ${scores[t.id]||0}`).join(', ');
     const gap = (scores[sorted[0]?.id]||0) - (scores[sorted[1]?.id]||0);
-    const prompt = `You are a witty, slightly snarky pub quiz host. After round ${roundIdx+1} of ${rounds.length} titled "${currentRound.name}", the scores are: ${pts}. ${gap===0?'It\'s a tie!':leader.name+' leads by '+gap+' points.'} Write ONE short, punchy host comment (max 12 words). Be funny. No quotes.`;
+    const prompt = 'You are a witty, slightly snarky pub quiz host. After round '+(roundIdx+1)+' of '+rounds.length+' titled "'+currentRound.name+'", scores: '+pts+'. '+(gap===0?'Tied!':leader.name+' leads by '+gap+'.')+' Write ONE punchy host comment (max 12 words). Be funny. No quotes.';
     fetch('https://crimson-mode-5ecf.trussej.workers.dev/', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
@@ -2450,25 +2450,14 @@ Respond ONLY with a valid JSON array, no markdown:
         } else if (cat.mechanic === "top5") {
           const seed = Math.random().toString(36).slice(2,8);
           const json = await callClaude(
-            `[seed:${seed}] Generate exactly ${cat.count || 5} Top 5 survey questions about: "${cat.name}". ${crowdContext()}
-Each question should have exactly 5 answers ranked #1 to #5, like a Family Feud survey but lighter and faster.
-Questions should be fun and crowd-pleasing — things like "Top 5 things people do on a Friday night" or "Top 5 most popular pizza toppings".
-Keep answers short (1-4 words), ranked most-to-least popular.
-Respond ONLY with a valid JSON array, no markdown:
-[{ "question": "Top 5 things people do on a Friday night", "answers": ["Watch TV","Go out drinking","Order takeout","Go to the gym","Play video games"] }]`
+            '[seed:'+seed+'] Generate exactly '+(cat.count||5)+' Top 5 survey questions about: "'+cat.name+'". '+crowdContext()+' Each question has exactly 5 answers ranked #1 to #5 most popular. Questions should be fun and crowd-pleasing. Keep answers short (1-4 words). Respond ONLY with a valid JSON array, no markdown: [{ "question": "Top 5 things people do on a Friday night", "answers": ["Watch TV","Go out drinking","Order takeout","Go to the gym","Play video games"] }]'
           );
           built.push({ ...cat, questions: JSON.parse(json) });
 
         } else if (cat.mechanic === "closest") {
           const seed = Math.random().toString(36).slice(2,8);
           const json = await callClaude(
-            `[seed:${seed}] Generate exactly ${cat.count || 5} numerical trivia questions about: "${cat.name}". ${crowdContext()}
-Each question has a numerical answer. Teams guess the number — closest wins.
-Questions should have interesting, memorable answers people can reason about (not obscure stats).
-Examples: "How many bones are in the human body?", "In what year was the Eiffel Tower completed?", "How many episodes of Friends were made?"
-Calibrate to crowd context if provided.
-Respond ONLY with a valid JSON array, no markdown:
-[{ "question": "How many bones are in the human body?", "answer": 206, "hint": "More than you think" }]`
+            '[seed:'+seed+'] Generate exactly '+(cat.count||5)+' numerical trivia questions about: "'+cat.name+'". '+crowdContext()+' Each question has a numerical answer — teams guess, closest wins. Use interesting numbers people can reason about. Short hint per question. Respond ONLY with a valid JSON array, no markdown: [{ "question": "How many bones are in the human body?", "answer": 206, "hint": "More than you think" }]'
           );
           built.push({ ...cat, questions: JSON.parse(json) });
         }
