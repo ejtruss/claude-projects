@@ -777,38 +777,116 @@ function HostSheetPage() {
   );
 }
 
-// ── QR CODE via qr-code-styling CDN (lightweight) ────────────────────
+// ── PURE JS QR CODE (no external dependencies) ───────────────────────
+// Minimal QR encoder — Version 1-10, ECC Level M, byte mode
+const QR = (() => {
+  // GF(256) arithmetic
+  const EXP = new Uint8Array(512), LOG = new Uint8Array(256);
+  (() => { let x=1; for(let i=0;i<255;i++){EXP[i]=x;LOG[x]=i;x<<=1;if(x>255)x^=285;} for(let i=255;i<512;i++)EXP[i]=EXP[i-255]; })();
+  const mul=(a,b)=>a&&b?EXP[LOG[a]+LOG[b]]:0;
+  function polyMul(p,q){const r=new Uint8Array(p.length+q.length-1);for(let i=0;i<p.length;i++)for(let j=0;j<q.length;j++)r[i+j]^=mul(p[i],q[j]);return r;}
+  function genPoly(n){let p=new Uint8Array([1]);for(let i=0;i<n;i++)p=polyMul(p,[1,EXP[i]]);return p;}
+  function rsBlock(data,n){const g=genPoly(n);let r=[...data];for(let i=0;i<n;i++)r.push(0);for(let i=0;i<data.length;i++){const c=r.shift();if(!c)continue;for(let j=0;j<g.length;j++)r[j]^=mul(g[j],c);}return new Uint8Array(r);}
+
+  // Version/ECC tables [version]: [dataCodewords, ecCodewordsPerBlock, blocks]
+  const VER=[null,
+    [19,7,1],[34,10,1],[55,15,1],[80,20,2],[108,26,2],
+    [136,18,4],[156,24,4],[194,16,6],[232,22,6],[274,28,6]
+  ];
+
+  function getVersion(len){for(let v=1;v<=10;v++)if(VER[v][0]>=len+2)return v;return 10;}
+
+  // Alignment pattern positions
+  const ALIGN=[[],[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50]];
+
+  function makeMatrix(v){const s=v*4+17;const m=Array.from({length:s},()=>new Int8Array(s).fill(-1));
+    function set(r,c,b){if(r>=0&&r<s&&c>=0&&c<s)m[r][c]=b;}
+    function finder(r,c){for(let dr=-1;dr<=7;dr++)for(let dc=-1;dc<=7;dc++){const b=(dr===0||dr===6||dc===0||dc===6||(dr>=2&&dr<=4&&dc>=2&&dc<=4))?1:0;set(r+dr,c+dc,b);}}
+    finder(0,0);finder(0,s-7);finder(s-7,0);
+    // timing
+    for(let i=8;i<s-8;i++){m[6][i]=m[i][6]=i%2===0?1:0;}
+    // dark module
+    m[s-8][8]=1;
+    // alignment
+    const ap=ALIGN[v];for(let i=0;i<ap.length;i++)for(let j=0;j<ap.length;j++){const r=ap[i],c=ap[j];if(m[r][c]!==-1)continue;for(let dr=-2;dr<=2;dr++)for(let dc=-2;dc<=2;dc++){const b=(Math.abs(dr)===2||Math.abs(dc)===2||(dr===0&&dc===0))?1:0;set(r+dr,c+dc,b);}}
+    return m;
+  }
+
+  function encode(text){
+    const bytes=new TextEncoder().encode(text);
+    const v=getVersion(bytes.length);
+    const [totalData,ecCount,blocks]=VER[v];
+    const blockSize=Math.floor(totalData/blocks), extra=totalData%blocks;
+    // build data codewords
+    const bits=[];
+    function pushBits(val,n){for(let i=n-1;i>=0;i--)bits.push((val>>i)&1);}
+    pushBits(0b0100,4); // byte mode
+    pushBits(bytes.length,8);
+    for(const b of bytes)pushBits(b,8);
+    // terminator + padding
+    for(let i=0;i<4&&bits.length<totalData*8;i++)bits.push(0);
+    while(bits.length%8)bits.push(0);
+    const PAD=[0xEC,0x11];let pi=0;
+    while(bits.length<totalData*8){pushBits(PAD[pi%2],8);pi++;}
+    // split into data blocks
+    const cw=[];for(let i=0;i<bits.length;i+=8)cw.push(parseInt(bits.slice(i,i+8).join(''),2));
+    const dataBlocks=[],ecBlocks=[];
+    let pos=0;
+    for(let b=0;b<blocks;b++){const len=blockSize+(b<extra?1:0);dataBlocks.push(cw.slice(pos,pos+len));ecBlocks.push(rsBlock(cw.slice(pos,pos+len),ecCount));pos+=len;}
+    // interleave
+    const final=[];
+    const maxD=Math.max(...dataBlocks.map(b=>b.length));
+    for(let i=0;i<maxD;i++)for(const b of dataBlocks)if(i<b.length)final.push(b[i]);
+    for(let i=0;i<ecCount;i++)for(const b of ecBlocks)final.push(b[i]);
+    // place modules
+    const s=v*4+17;
+    const m=makeMatrix(v);
+    // format info placeholder
+    const FMT=[[0,8],[1,8],[2,8],[3,8],[4,8],[5,8],[7,8],[8,8],[8,7],[8,5],[8,4],[8,3],[8,2],[8,1],[8,0]];
+    const FMT2=[[8,s-1],[8,s-2],[8,s-3],[8,s-4],[8,s-5],[8,s-6],[8,s-7],[s-8,8],[s-7,8],[s-6,8],[s-5,8],[s-4,8],[s-3,8],[s-2,8],[s-1,8]];
+    for(const [r,c] of [...FMT,...FMT2])m[r][c]=0;
+    // data placement
+    const fbits=[];for(const cw of final)for(let i=7;i>=0;i--)fbits.push((cw>>i)&1);
+    let bi=0,up=true;
+    for(let c=s-1;c>0;c-=2){if(c===6)c--;
+      for(let r=up?s-1:0;up?r>=0:r<s;r+=up?-1:1){
+        for(let dc=0;dc<2;dc++){const cc=c-dc;if(m[r][cc]===-1){m[r][cc]=bi<fbits.length?fbits[bi++]:0;}}
+      }
+      up=!up;
+    }
+    // apply mask 0: (r+c)%2===0
+    for(let r=0;r<s;r++)for(let c=0;c<s;c++)if(m[r][c]!==-1&&m[r][c]<2&&(r+c)%2===0)m[r][c]^=1;
+    // format string for mask 0, ECC M (101) -> 101000 -> with BCH = 101000010011010 ^ 101010000010010 = 000010010001000... precomputed
+    const fmtBits=[1,0,1,1,0,1,0,0,0,0,1,0,0,1,0];
+    for(let i=0;i<15;i++){const b=fmtBits[i];if(i<FMT.length){const[r,c]=FMT[i];m[r][c]=b;}if(i<FMT2.length){const[r,c]=FMT2[i];m[r][c]=b;}}
+    return {matrix:m,size:s};
+  }
+  return {encode};
+})();
+
 function QRCode({ url }) {
-  const ref = useRef(null);
+  const canvasRef = useRef(null);
   useEffect(() => {
-    if (!ref.current || !url) return;
-    ref.current.innerHTML = '';
-    // Build QR as SVG using pure math — no external lib
-    const size = 180;
-    const canvas = document.createElement('canvas');
-    canvas.width = size; canvas.height = size;
-    const ctx = canvas.getContext('2d');
-    // Use the Google Charts API as a reliable fallback — widely available
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => { ctx.drawImage(img, 0, 0, size, size); };
-    img.onerror = () => {
-      // If image fails, show URL as text fallback
+    if (!canvasRef.current || !url) return;
+    try {
+      const {matrix, size} = QR.encode(url);
+      const CELL = Math.floor(180 / (size + 8));
+      const QUIET = Math.floor((180 - CELL * size) / 2);
+      const canvas = canvasRef.current;
+      canvas.width = canvas.height = 180;
+      const ctx = canvas.getContext('2d');
       ctx.fillStyle = '#fff';
-      ctx.fillRect(0,0,size,size);
+      ctx.fillRect(0, 0, 180, 180);
       ctx.fillStyle = '#000';
-      ctx.font = '10px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText('Scan failed—use Copy Link', size/2, size/2);
-    };
-    img.src = `https://chart.googleapis.com/chart?cht=qr&chs=180x180&chl=${encodeURIComponent(url)}&choe=UTF-8`;
-    ref.current.appendChild(canvas);
+      for (let r = 0; r < size; r++)
+        for (let c = 0; c < size; c++)
+          if (matrix[r][c] === 1)
+            ctx.fillRect(QUIET + c * CELL, QUIET + r * CELL, CELL, CELL);
+    } catch(e) { console.error('QR error', e); }
   }, [url]);
   return (
     <div className="qr-frame">
-      <div ref={ref} style={{width:180,height:180,background:'#fff',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center'}}>
-        <span style={{fontSize:11,color:'#999',fontFamily:'monospace'}}>Loading…</span>
-      </div>
+      <canvas ref={canvasRef} width={180} height={180} style={{display:'block',borderRadius:4}}/>
     </div>
   );
 }
