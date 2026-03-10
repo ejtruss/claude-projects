@@ -2401,7 +2401,7 @@ function PubQuiz() {
             '[seed:'+seed+'] Generate exactly '+(cat.count||4)+' Family Feud survey questions about: "'+cat.name+'". '+crowdContext()+' Vary style: name a thing, place, something you would do or say. Answers feel like real survey responses, short 1-4 words, ranked most to least common. Respond ONLY valid JSON array no markdown: [{ "question": "Name something you find in a fridge", "answers": ["Milk","Leftovers","Juice","Cheese","Vegetables","Condiments"] }]'
           );
           built.push({ ...cat, questions: JSON.parse(json) });
-        } else {
+        } else if (cat.mechanic === 'sporcle') {
           const seed = Math.random().toString(36).slice(2,8);
           const json = await callClaude(
             '[seed:'+seed+'] Generate exactly '+(cat.count||4)+' Sporcle-style list questions about: "'+cat.name+'". Each question asks players to name a complete well-known set. Answer count matches natural set size (NBA Teams=30, continents=7, planets=8). Vary answer counts across questions. Use short common names. All answers well-known and unambiguous. Respond ONLY valid JSON array no markdown: [{ "question": "Name all 30 NBA Teams", "answers": ["Lakers","Celtics"] }]'
