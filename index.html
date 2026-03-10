@@ -181,6 +181,24 @@ const SFX = {
   [330,277,247,220].forEach((f,i) => setTimeout(() =>
     playTone({ freq:f, type:'sawtooth', gain:0.22, attack:0.02, decay:0.08, release:0.3, duration:0.15 }), i*140));
   },
+  countdown() {
+    playTone({ freq:440, type:'sine', gain:0.3, attack:0.01, decay:0.05, release:0.15, duration:0.08 });
+  },
+  countdownGo() {
+    [523,659,784,1047].forEach((f,i) => setTimeout(() =>
+      playTone({ freq:f, type:'triangle', gain:0.35, attack:0.01, decay:0.06, release:0.3, duration:0.1 }), i*60));
+    setTimeout(() => playNoise({ gain:0.2, duration:0.15, freq:200, q:1 }), 50);
+  },
+  fanfare() {
+    const melody = [523,659,784,659,784,1047];
+    melody.forEach((f,i) => setTimeout(() =>
+      playTone({ freq:f, type:'triangle', gain:0.3, attack:0.01, decay:0.08, release:0.4, duration:0.12 }), i*100));
+    setTimeout(() => playNoise({ gain:0.25, duration:0.2, freq:180, q:1 }), 200);
+  },
+  rankUp() {
+    [440,554,659].forEach((f,i) => setTimeout(() =>
+      playTone({ freq:f, type:'sine', gain:0.2, attack:0.01, decay:0.05, release:0.25, duration:0.08 }), i*80));
+  },
 };
 
 // ── Replace this URL with your Cloudflare Worker URL after setup ──
@@ -205,7 +223,7 @@ async function callClaude(prompt) {
   return match[0];
 }
 
-const MECHANIC_LABELS = { qa: "Q & A", sporcle: "Sporcle Round", tf: "True or False", feud: "Family Feud" };
+const MECHANIC_LABELS = { qa: "Q & A", sporcle: "Sporcle Round", tf: "True or False", feud: "Family Feud", top5: "Top 5", closest: "Closest Wins" };
 
 async function generateSingleQuestion(mechanic, catName) {
   const seed = Math.random().toString(36).slice(2,8);
@@ -241,8 +259,8 @@ async function generateSingleQuestion(mechanic, catName) {
   return result;
 }
 const DEFAULT_CATS = [
-  { id: 1, name: "Pop Culture", mechanic: "qa", count: 8 },
-  { id: 2, name: "NBA Teams", mechanic: "sporcle", count: 30 },
+  { id: 1, name: "Pop Culture", mechanic: "qa", count: 5 },
+  { id: 2, name: "NBA Teams", mechanic: "sporcle", count: 5 },
 ];
 
 const css = `
@@ -664,23 +682,126 @@ body{background:var(--bg);font-family:var(--font-ui);color:var(--text);}
 @keyframes revealAns{0%{opacity:0;transform:scale(0.88) translateY(8px)}70%{transform:scale(1.03)}100%{opacity:1;transform:scale(1) translateY(0)}}
 @keyframes scoreBump{0%,100%{transform:scale(1)}40%{transform:scale(1.35)}}
 .score-bump{animation:scoreBump 0.3s ease;}
+
+/* ── CROWD CONTEXT SETUP ── */
+.crowd-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;}
+.crowd-chip{padding:8px 16px;border-radius:100px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:var(--muted);font-family:var(--font-c);font-size:12px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all 0.15s;}
+.crowd-chip:hover{border-color:rgba(255,255,255,0.3);color:var(--text);}
+.crowd-chip.selected{border-color:#FF3D6B;background:rgba(255,61,107,0.12);color:#FF3D6B;}
+
+/* ── COUNTDOWN ── */
+.countdown-overlay{position:fixed;inset:0;background:rgba(6,6,10,0.97);z-index:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;}
+.countdown-num{font-family:var(--font-d);font-size:clamp(140px,25vw,220px);letter-spacing:-4px;line-height:1;animation:countPop 0.4s cubic-bezier(0.2,1.4,0.4,1);}
+@keyframes countPop{0%{transform:scale(1.6);opacity:0}60%{transform:scale(0.95)}100%{transform:scale(1);opacity:1}}
+.countdown-label{font-family:var(--font-c);font-size:13px;letter-spacing:5px;text-transform:uppercase;color:var(--muted);}
+.go-text{font-family:var(--font-d);font-size:clamp(80px,15vw,140px);letter-spacing:4px;animation:goSlam 0.4s cubic-bezier(0.15,1.5,0.4,1);background:linear-gradient(135deg,#FF3D6B,#FFD200);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+@keyframes goSlam{0%{transform:scale(0.4);opacity:0}70%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+
+/* ── LEADERBOARD / ROUND SUMMARY ── */
+.lb-screen{text-align:center;position:relative;z-index:1;width:100%;max-width:560px;}
+.lb-title{font-family:var(--font-c);font-size:11px;letter-spacing:5px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+.lb-round{font-family:var(--font-d);font-size:clamp(32px,5vw,48px);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;}
+.lb-banter{font-family:var(--font-c);font-size:14px;letter-spacing:1px;color:var(--muted);margin-bottom:28px;font-style:italic;min-height:22px;}
+.lb-rows{display:flex;flex-direction:column;gap:8px;margin-bottom:32px;width:100%;}
+.lb-row{display:flex;align-items:center;padding:14px 20px;border-radius:12px;border:1px solid;gap:12px;transition:all 0.4s;}
+.lb-rank{font-family:var(--font-d);font-size:22px;min-width:32px;}
+.lb-name{font-family:var(--font-c);font-size:17px;font-weight:700;letter-spacing:2px;text-transform:uppercase;flex:1;}
+.lb-pts{font-family:var(--font-d);font-size:28px;}
+.lb-delta{font-family:var(--font-c);font-size:12px;letter-spacing:1px;padding:2px 8px;border-radius:100px;font-weight:700;}
+
+/* ── TOP 5 MODE ── */
+.top5-screen{width:100%;max-width:900px;position:relative;z-index:1;}
+.top5-slots{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;}
+.top5-slot{display:flex;align-items:center;gap:12px;padding:12px 18px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.02);transition:all 0.3s;}
+.top5-slot.found{background:rgba(74,222,128,0.08);border-color:rgba(74,222,128,0.3);animation:tileReveal 0.35s ease;}
+.top5-num{font-family:var(--font-d);font-size:20px;color:rgba(255,255,255,0.2);min-width:28px;}
+.top5-slot.found .top5-num{color:#4ade80;}
+.top5-answer{font-family:var(--font-c);font-size:16px;font-weight:700;letter-spacing:1px;color:rgba(255,255,255,0.1);}
+.top5-slot.found .top5-answer{color:#4ade80;}
+
+/* ── CLOSEST WINS MODE ── */
+.closest-screen{width:100%;max-width:900px;position:relative;z-index:1;}
+.closest-inputs{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:16px;}
+.closest-team-input{border:2px solid;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px;}
+.closest-team-label{font-family:var(--font-c);font-size:11px;letter-spacing:3px;text-transform:uppercase;}
+.closest-num-input{background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 14px;color:var(--text);font-family:var(--font-d);font-size:28px;letter-spacing:2px;outline:none;width:100%;text-align:center;}
+.closest-num-input:focus{border-color:rgba(255,255,255,0.4);}
+.closest-result{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;}
+.closest-result-row{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-radius:10px;border:1px solid;}
+.closest-winner-banner{text-align:center;padding:20px;border-radius:14px;border:2px solid;}
+
+/* ── WINNER SCREEN UPGRADE ── */
+.winner-crown{font-size:clamp(48px,8vw,80px);margin-bottom:8px;animation:crownDrop 0.6s cubic-bezier(0.2,1.4,0.4,1);}
+@keyframes crownDrop{0%{transform:translateY(-60px) rotate(-15deg);opacity:0}60%{transform:translateY(4px) rotate(2deg)}100%{transform:translateY(0) rotate(0);opacity:1}}
+.winner-name-big{font-family:var(--font-d);font-size:clamp(52px,11vw,120px);letter-spacing:4px;line-height:1;margin-bottom:4px;animation:winnerSlam 0.55s cubic-bezier(0.15,1.5,0.4,1) 0.2s both;text-transform:uppercase;}
+@keyframes winnerSlam{0%{transform:scale(0.3);opacity:0}70%{transform:scale(1.06)}100%{transform:scale(1);opacity:1}}
 `
 
 // ── HOST SHEET UTILS ──────────────────────────────────────────────────
-function buildHostUrl(rounds) {
+function buildHostHtml(rounds) {
+  // Build a self-contained host sheet HTML page
+  const rows = rounds.map((r, ri) => {
+    const colors = ['#FF3D6B','#00D4FF','#FFD200','#7CFF6B'];
+    const col = colors[ri % 4];
+    const mechLabel = r.mechanic==='qa'?'Q & A':r.mechanic==='tf'?'True or False':r.mechanic==='feud'?'Family Feud':'Sporcle';
+    let qs = '';
+    if (r.mechanic === 'qa') {
+      qs = (r.questions||[]).map((q,i) => `
+        <div class="q"><div class="qn">Q${i+1}</div>
+        <div class="qt">${q.question}</div>
+        <div class="ans">${q.answer}</div></div>`).join('');
+    } else if (r.mechanic === 'tf') {
+      qs = (r.questions||[]).map((q,i) => `
+        <div class="q"><div class="qn">Q${i+1}</div>
+        <div class="qt">${q.statement}</div>
+        <div class="ans ${q.answer?'true':'false'}">${q.answer?'✓ TRUE':'✗ FALSE'}</div>
+        ${q.explanation?`<div class="exp">${q.explanation}</div>`:''}</div>`).join('');
+    } else if (r.mechanic === 'feud') {
+      qs = (r.questions||[]).map((q,i) => `
+        <div class="q"><div class="qn">Q${i+1}</div>
+        <div class="qt">${q.question}</div>
+        <div class="chips">${(q.answers||[]).map((a,ai)=>`<span class="chip">#${ai+1} ${a}</span>`).join('')}</div></div>`).join('');
+    } else if (r.mechanic === 'sporcle') {
+      qs = (r.questions||[]).map((q,i) => `
+        <div class="q"><div class="qn">Q${i+1}</div>
+        <div class="qt">${q.question}</div>
+        <div class="chips">${(q.answers||[]).map(a=>`<span class="chip">${a}</span>`).join('')}</div></div>`).join('');
+    }
+    return `<div class="round"><div class="rh" style="border-color:${col}40"><div class="rb" style="background:${col}"></div><div><div class="rn" style="color:${col}">${r.name}</div><div class="rm">${mechLabel}</div></div></div>${qs}</div>`;
+  });
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Trivio Host Sheet</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#06060a;color:#f0eee8;font-family:system-ui,sans-serif;padding:0 0 60px}
+.header{background:rgba(6,6,10,.97);border-bottom:1px solid rgba(255,255,255,.08);padding:14px 20px;position:sticky;top:0;display:flex;justify-content:space-between;align-items:center}
+.logo{font-family:Georgia,serif;font-size:18px;letter-spacing:3px;font-weight:bold;background:linear-gradient(135deg,#FF3D6B,#FFD200);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hint{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,210,0,.7)}
+.content{max-width:780px;margin:0 auto;padding:28px 20px;display:flex;flex-direction:column;gap:36px}
+.round{}
+.rh{display:flex;align-items:center;gap:10px;margin-bottom:16px;padding:10px 14px;border:1px solid;border-radius:10px}
+.rb{width:3px;height:28px;border-radius:2px;flex-shrink:0}
+.rn{font-size:20px;font-weight:bold;letter-spacing:2px;text-transform:uppercase}
+.rm{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:rgba(240,238,232,.35);margin-top:2px}
+.q{border-left:2px solid rgba(255,255,255,.1);padding-left:14px;margin-bottom:18px}
+.qn{font-size:10px;letter-spacing:3px;text-transform:uppercase;color:rgba(240,238,232,.3);margin-bottom:5px}
+.qt{font-size:17px;font-weight:bold;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;line-height:1.3}
+.ans{display:inline-flex;padding:5px 14px;border-radius:6px;font-size:16px;font-weight:bold;letter-spacing:1px;background:rgba(255,210,0,.08);border:1px solid rgba(255,210,0,.25);color:#FFD200}
+.ans.true{background:rgba(74,222,128,.08);border-color:rgba(74,222,128,.25);color:#4ade80}
+.ans.false{background:rgba(248,113,113,.08);border-color:rgba(248,113,113,.25);color:#f87171}
+.exp{margin-top:6px;font-size:13px;color:rgba(240,238,232,.5);line-height:1.4}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{padding:3px 10px;border-radius:100px;background:rgba(74,222,128,.07);border:1px solid rgba(74,222,128,.2);color:#4ade80;font-size:13px}
+</style></head><body>
+<div class="header"><div class="logo">TRIVIO HOST SHEET</div><div class="hint">↺ Refresh QR after reroll</div></div>
+<div class="content">${rows.join('')}</div>
+</body></html>`;
+}
+
+function buildBlobUrl(rounds) {
   try {
-    // Compress: strip verbose fields, keep only what host sheet needs
-    const compact = rounds.map(r => {
-      const base = { n: r.name, m: r.mechanic };
-      if (r.mechanic === 'qa') base.q = (r.questions||[]).map(q=>({q:q.question,a:q.answer}));
-      else if (r.mechanic === 'tf') base.q = (r.questions||[]).map(q=>({s:q.statement,a:q.answer,e:q.explanation}));
-      else if (r.mechanic === 'feud') base.q = (r.questions||[]).map(q=>({q:q.question,a:q.answers}));
-      else if (r.mechanic === 'sporcle') base.q = (r.questions||[]).map(q=>({q:q.question,a:q.answers}));
-      return base;
-    });
-    const encoded = btoa(encodeURIComponent(JSON.stringify(compact)));
-    const base = window.location.href.split('?')[0];
-    return `${base}?host=1&d=${encoded}`;
+    const html = buildHostHtml(rounds);
+    const blob = new Blob([html], { type: 'text/html' });
+    return URL.createObjectURL(blob);
   } catch(e) { return null; }
 }
 
@@ -692,14 +813,16 @@ function HostSheetPage() {
       const params = new URLSearchParams(window.location.search);
       const d = params.get('d');
       if (!d) { setError('No data found in URL.'); return; }
-      const compact = JSON.parse(decodeURIComponent(atob(d)));
-      // Expand compact format back to full format
+      const b64 = d.replace(/-/g,'+').replace(/_/g,'/');
+      const compact = JSON.parse(decodeURIComponent(escape(atob(b64))));
+      const MECH = {q:'qa',t:'tf',f:'feud',s:'sporcle'};
       const decoded = compact.map(r => {
-        const base = { name: r.n, mechanic: r.m };
-        if (r.m === 'qa') base.questions = (r.q||[]).map(q=>({question:q.q,answer:q.a}));
-        else if (r.m === 'tf') base.questions = (r.q||[]).map(q=>({statement:q.s,answer:q.a,explanation:q.e}));
-        else if (r.m === 'feud') base.questions = (r.q||[]).map(q=>({question:q.q,answers:q.a}));
-        else if (r.m === 'sporcle') base.questions = (r.q||[]).map(q=>({question:q.q,answers:q.a}));
+        const mech = MECH[r.m] || r.m;
+        const base = { name: r.n, mechanic: mech };
+        if (mech === 'qa') base.questions = (r.d||[]).map(x=>({question:x[0],answer:x[1]}));
+        else if (mech === 'tf') base.questions = (r.d||[]).map(x=>({statement:x[0],answer:!!x[1],explanation:x[2]}));
+        else if (mech === 'feud') base.questions = (r.d||[]).map(x=>({question:x[0],answers:x.slice(1)}));
+        else if (mech === 'sporcle') base.questions = (r.d||[]).map(x=>({question:x[0],answers:x.slice(1)}));
         return base;
       });
       setRounds(decoded);
@@ -918,7 +1041,8 @@ function GameHeader({ teams, scores, onAdjust, onSetScore, rounds, showGear = tr
   const editRef = useRef(null);
   const [copied, setCopied] = useState(false);
 
-  const hostUrl = rounds && rounds.length ? buildHostUrl(rounds) : null;
+  const [blobUrl, setBlobUrl] = useState(null);
+  const hostUrl = blobUrl;
 
   useEffect(() => { if (editingId) setTimeout(() => editRef.current?.select(), 50); }, [editingId]);
 
@@ -931,10 +1055,10 @@ function GameHeader({ teams, scores, onAdjust, onSetScore, rounds, showGear = tr
 
   function copyLink() {
     if (!hostUrl) return;
-    navigator.clipboard.writeText(hostUrl).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+    // Open in new tab (blob URLs work same-browser)
+    window.open(hostUrl, '_blank');
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
   return (
@@ -992,7 +1116,7 @@ function GameHeader({ teams, scores, onAdjust, onSetScore, rounds, showGear = tr
               <span>{muted ? '🔇' : '🔊'}</span> {muted ? 'Unmute Sound' : 'Mute Sound'}
             </button>
             {hostUrl && (
-              <button className="tray-btn" onClick={() => { setShowQRModal(true); setTrayOpen(false); }}>
+              <button className="tray-btn" onClick={() => { const url = buildBlobUrl(rounds); setBlobUrl(url); setShowQRModal(true); setTrayOpen(false); }}>
                 <span>📋</span> Open Host Sheet
               </button>
             )}
@@ -1015,11 +1139,11 @@ function GameHeader({ teams, scores, onAdjust, onSetScore, rounds, showGear = tr
             <div className="qr-title">Host Sheet</div>
             <div className="qr-sub">Scan on your phone · all answers visible</div>
             <QRCode url={hostUrl} key={hostUrl}/>
-            <div className="qr-hint">If you rerolled a question, tap ↺ below to refresh the QR</div>
+            <div className="qr-hint">Scan with your phone · same wifi not needed · tap ↺ after any reroll</div>
             <div className="qr-btns">
-              <button className="qr-btn" onClick={() => { setShowQRModal(false); setTimeout(()=>setShowQRModal(true),50); }}>↺ Refresh QR</button>
+              <button className="qr-btn" onClick={() => { const url = buildBlobUrl(rounds); setBlobUrl(url); }}>↺ Refresh QR</button>
               <button className={`qr-btn${copied?' copy-done':''}`} onClick={copyLink}>
-                {copied ? '✓ Copied!' : '⧉ Copy Link'}
+                {copied ? '✓ Opened!' : '↗ Open Tab'}
               </button>
               <button className="qr-btn" onClick={() => setShowQRModal(false)}>Close</button>
             </div>
@@ -1428,6 +1552,221 @@ function SporcleRound({round,roundIdx,teams,scores,onAdjust,onSetScore,onFinish}
     </div>
   );
 }
+function Top5Round({round, qIdx, setQIdx, teams, scores, onAdjust, onSetScore, onFinish, tc}) {
+  const questions = round.questions || [];
+  const q = questions[qIdx] || {};
+  const answers = q.answers || [];
+  const total = questions.length;
+  const [found, setFound] = useState(new Set());
+  const [inputVal, setInputVal] = useState('');
+  const [turnIdx, setTurnIdx] = useState(0);
+  const [lastResult, setLastResult] = useState(null);
+  const [done, setDone] = useState(false);
+  const [ptsDone, setPtsDone] = useState(false);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    setFound(new Set()); setInputVal(''); setDone(false); setPtsDone(false);
+    setLastResult(null); setTurnIdx(0);
+  }, [qIdx]);
+
+  useEffect(() => { if (!done) inputRef.current?.focus(); }, [done, qIdx, turnIdx]);
+
+  const currentTeam = teams[turnIdx % teams.length];
+  const currentTeamIdx = turnIdx % teams.length;
+
+  function submit() {
+    if (!inputVal.trim() || done) return;
+    for (let i = 0; i < answers.length; i++) {
+      if (!found.has(i) && fuzzy(inputVal, answers[i])) {
+        const next = new Set([...found, i]);
+        setFound(next); setInputVal(''); setLastResult('correct');
+        setTimeout(() => setLastResult(null), 600);
+        SFX.tilePop(); setTurnIdx(t => t + 1);
+        if (next.size >= answers.length) { setDone(true); setTimeout(() => SFX.winner(), 200); }
+        return;
+      }
+    }
+    setLastResult('wrong'); setInputVal('');
+    setTimeout(() => setLastResult(null), 600); SFX.wrong();
+    setTurnIdx(t => t + 1);
+  }
+
+  const col = tc(round.questions ? 0 : 0);
+  const bc = lastResult === 'correct' ? '#4ade80' : lastResult === 'wrong' ? '#f87171' : 'rgba(255,255,255,0.15)';
+
+  return (
+    <div className="game-body top5-screen">
+      <div className="cinema-eyebrow">{round.name} · Q{qIdx+1}/{total}</div>
+      <div className="cinema-question">{q.question}</div>
+      <div className="q-dots" style={{marginBottom:16}}>
+        {questions.map((_,i) => <div key={i} className={`q-dot${i===qIdx?' active':i<qIdx?' done':''}`}/>)}
+      </div>
+      <div className="top5-slots">
+        {answers.map((ans, i) => (
+          <div key={i} className={`top5-slot${found.has(i)?' found':''}`}>
+            <div className="top5-num">#{i+1}</div>
+            <div className="top5-answer">{found.has(i) ? ans : '?'}</div>
+          </div>
+        ))}
+      </div>
+      {!done ? (
+        <div className="dock">
+          <div style={{padding:'12px 20px',display:'flex',gap:10,alignItems:'center',borderBottom:'1px solid rgba(255,255,255,0.06)',background:'rgba(6,6,10,0.6)'}}>
+            <span style={{fontFamily:'var(--font-c)',fontSize:12,letterSpacing:2,color:'var(--muted)',textTransform:'uppercase',flexShrink:0}}>
+              <span style={{color:tc(currentTeamIdx).main}}>{currentTeam?.name}</span>
+            </span>
+            <input ref={inputRef} value={inputVal} onChange={e=>setInputVal(e.target.value)}
+              onKeyDown={e=>e.key==='Enter'&&submit()}
+              placeholder="Type an answer…"
+              autoComplete="off" autoCorrect="off" spellCheck="false"
+              style={{flex:1,background:'rgba(255,255,255,0.06)',border:`1px solid ${bc}`,borderRadius:8,padding:'8px 14px',color:'var(--text)',fontFamily:'var(--font-c)',fontSize:15,outline:'none',transition:'border-color 0.2s'}}/>
+            <button className="dock-reroll-btn" style={{padding:'8px 14px',fontSize:12}} onClick={()=>{setTurnIdx(t=>t+1);setInputVal('');}}>↩ Pass</button>
+          </div>
+          <div style={{padding:'10px 20px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <span style={{fontFamily:'var(--font-c)',fontSize:12,color:'var(--muted)',letterSpacing:1}}>{found.size}/{answers.length} found</span>
+            <button className="dock-next-btn" style={{padding:'10px 28px',fontSize:14}} onClick={()=>setDone(true)}>Reveal All →</button>
+          </div>
+        </div>
+      ) : (
+        <div className="dock">
+          <div className="dock-post">
+            <div className="dock-pts-row">
+              {teams.map((t,i) => {
+                const c = tc(i);
+                return (
+                  <button key={t.id} className="dock-pts-btn"
+                    style={{borderColor:c.main+'60',color:c.main,background:c.dim}}
+                    onMouseOver={e=>e.currentTarget.style.background=c.glow}
+                    onMouseOut={e=>e.currentTarget.style.background=c.dim}
+                    onClick={()=>{onAdjust(t.id,1);SFX.point();setPtsDone(true);}}>
+                    +1 {t.name}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="dock-ctrl-row">
+              <button className="dock-next-btn" style={{padding:'13px 36px'}} onClick={()=>qIdx+1<total?setQIdx(q=>q+1):onFinish()}>
+                {qIdx+1<total?'Next Question →':'End Round →'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ClosestWinsRound({round, qIdx, setQIdx, teams, scores, onAdjust, onSetScore, onFinish, tc}) {
+  const questions = round.questions || [];
+  const q = questions[qIdx] || {};
+  const total = questions.length;
+  const [guesses, setGuesses] = useState({});
+  const [revealed, setRevealed] = useState(false);
+  const [ptsDone, setPtsDone] = useState(false);
+
+  useEffect(() => { setGuesses({}); setRevealed(false); setPtsDone(false); }, [qIdx]);
+
+  const correct = Number(q.answer);
+  const distances = teams.map(t => ({
+    team: t,
+    guess: guesses[t.id] !== undefined ? Number(guesses[t.id]) : null,
+    dist: guesses[t.id] !== undefined ? Math.abs(Number(guesses[t.id]) - correct) : Infinity,
+  })).sort((a,b) => a.dist - b.dist);
+  const winnerTeam = distances[0];
+
+  function allGuessed() { return teams.every(t => guesses[t.id] !== undefined && guesses[t.id] !== ''); }
+
+  return (
+    <div className="game-body closest-screen">
+      <div className="cinema-eyebrow">{round.name} · Q{qIdx+1}/{total}</div>
+      <div className="cinema-question">{q.question}</div>
+      {q.hint && !revealed && (
+        <div style={{fontFamily:'var(--font-c)',fontSize:13,color:'var(--muted)',letterSpacing:1,textAlign:'center',marginBottom:8,fontStyle:'italic'}}>Hint: {q.hint}</div>
+      )}
+      <div className="q-dots" style={{marginBottom:20}}>
+        {questions.map((_,i) => <div key={i} className={`q-dot${i===qIdx?' active':i<qIdx?' done':''}`}/>)}
+      </div>
+
+      {!revealed ? (
+        <>
+          <div className="closest-inputs">
+            {teams.map((t,i) => {
+              const c = tc(i);
+              return (
+                <div key={t.id} className="closest-team-input" style={{borderColor:c.main+'50'}}>
+                  <div className="closest-team-label" style={{color:c.main}}>{t.name}</div>
+                  <input type="number" className="closest-num-input"
+                    placeholder="?" value={guesses[t.id]||''}
+                    onChange={e=>setGuesses(g=>({...g,[t.id]:e.target.value}))}
+                    style={{color:c.main}}/>
+                </div>
+              );
+            })}
+          </div>
+          <div className="dock">
+            <div style={{padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <span style={{fontFamily:'var(--font-c)',fontSize:12,color:'var(--muted)',letterSpacing:1}}>
+                {teams.filter(t=>guesses[t.id]).length}/{teams.length} teams locked in
+              </span>
+              <button className="dock-reveal-btn" onClick={()=>{if(allGuessed()||confirm('Not all teams guessed — reveal anyway?')){setRevealed(true);SFX.reveal();}}} >▶ Reveal Answer</button>
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          <div style={{textAlign:'center',marginBottom:20}}>
+            <div style={{fontFamily:'var(--font-c)',fontSize:12,letterSpacing:4,textTransform:'uppercase',color:'var(--muted)',marginBottom:6}}>The Answer</div>
+            <div style={{fontFamily:'var(--font-d)',fontSize:'clamp(52px,10vw,96px)',letterSpacing:2,color:'#FFD200',animation:'scoreBump 0.4s ease'}}>{correct.toLocaleString()}</div>
+          </div>
+          <div className="closest-result">
+            {distances.map((d, rank) => {
+              const i = teams.indexOf(d.team);
+              const c = tc(i < 0 ? 0 : i);
+              const isWinner = rank === 0;
+              return (
+                <div key={d.team.id} className="closest-result-row"
+                  style={{borderColor:isWinner?c.main+'80':c.main+'25',background:isWinner?c.dim:'transparent'}}>
+                  <span style={{fontFamily:'var(--font-d)',fontSize:18,color:c.main,minWidth:28}}>#{rank+1}</span>
+                  <span style={{fontFamily:'var(--font-c)',fontSize:15,fontWeight:700,letterSpacing:2,textTransform:'uppercase',flex:1,color:c.main}}>{d.team.name}</span>
+                  <span style={{fontFamily:'var(--font-d)',fontSize:22,color:c.main}}>{d.guess !== null ? d.guess.toLocaleString() : '—'}</span>
+                  <span style={{fontFamily:'var(--font-c)',fontSize:12,color:isWinner?'#4ade80':'var(--muted)',letterSpacing:1,minWidth:60,textAlign:'right'}}>
+                    {d.dist === 0 ? '🎯 EXACT' : d.dist === Infinity ? 'no guess' : `off by ${d.dist.toLocaleString()}`}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="dock">
+            <div className="dock-post">
+              <div className="dock-pts-row">
+                {teams.map((t,i) => {
+                  const c = tc(i);
+                  return (
+                    <button key={t.id} className="dock-pts-btn"
+                      style={{borderColor:c.main+'60',color:c.main,background:c.dim}}
+                      onMouseOver={e=>e.currentTarget.style.background=c.glow}
+                      onMouseOut={e=>e.currentTarget.style.background=c.dim}
+                      onClick={()=>{onAdjust(t.id,1);SFX.point();setPtsDone(true);}}>
+                      +1 {t.name}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="dock-ctrl-row">
+                <button className="dock-next-btn" style={{padding:'13px 36px'}} onClick={()=>qIdx+1<total?setQIdx(q=>q+1):onFinish()}>
+                  {qIdx+1<total?'Next Question →':'End Round →'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+
 function SlotMachine({teams,onDone}) {
   const [idx,setIdx]=useState(0);
   const [winner,setWinner]=useState(null);
@@ -1457,6 +1796,7 @@ function SlotMachine({teams,onDone}) {
       </div>
       {winner!==null&&<button onClick={()=>onDone(winner)}
         style={{padding:'13px 44px',background:col,border:'none',borderRadius:12,fontFamily:'var(--font-d)',fontSize:18,letterSpacing:3,color:'#080810',cursor:'pointer',marginTop:8}}>PLAY</button>}
+      {counting && <CountdownToRound roundName={currentRound?.name||''} onDone={()=>{setCounting(false);beginRound();}} />}
     </div>
   );
 }
@@ -1692,7 +2032,7 @@ function FamilyFeud({round,qIdx,setQIdx,teams,scores,onAdjust,onSetScore,onFinis
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:10,gap:8}}>
             <div style={{fontFamily:'var(--font-c)',fontSize:11,letterSpacing:2,color:'var(--muted)'}}>{found.size} found · {rem.length} remaining</div>
             {strikes===0&&found.size===0&&onReroll&&(
-              <button className="ctrl-btn reroll" style={{flex:'0 0 auto',padding:'5px 10px',fontSize:10}} onClick={handleReroll} disabled={rerolling}>{rerolling?'…':'↺ Reset Q'}</button>
+              <button className="dock-reroll-btn" onClick={handleReroll} disabled={rerolling}>{rerolling?'…':'↺ Reset Q'}</button>
             )}
           </div>
         </div>
@@ -1734,8 +2074,35 @@ function FamilyFeud({round,qIdx,setQIdx,teams,scores,onAdjust,onSetScore,onFinis
     </div>
   );
 }
+function CountdownToRound({ onDone, roundName }) {
+  const [phase, setPhase] = useState(0); // 0=3, 1=2, 2=1, 3=GO
+  useEffect(() => {
+    const nums = [0,1,2,3];
+    nums.forEach(n => setTimeout(() => {
+      setPhase(n);
+      if (n < 3) SFX.countdown(); else SFX.countdownGo();
+    }, n * 900));
+    setTimeout(onDone, 3700);
+  }, []);
+  const labels = ['3','2','1'];
+  const colors = ['#FF3D6B','#FFD200','#00D4FF'];
+  return (
+    <div className="countdown-overlay">
+      {phase < 3 ? (
+        <>
+          <div className="countdown-num" key={phase} style={{color:colors[phase]}}>{labels[phase]}</div>
+          <div className="countdown-label">{roundName}</div>
+        </>
+      ) : (
+        <div className="go-text" key="go">GO!</div>
+      )}
+    </div>
+  );
+}
+
 function IntroScreen({ currentRound, roundIdx, rounds, teams, scores, editingList, setEditingList, setRounds, beginRound, tc, MECHANIC_LABELS }) {
   const [slammed, setSlammed] = useState(false);
+  const [counting, setCounting] = useState(false);
   useEffect(() => {
     const t = setTimeout(() => {
       setSlammed(true);
@@ -1787,9 +2154,10 @@ function IntroScreen({ currentRound, roundIdx, rounds, teams, scores, editingLis
         <div className="intro-actions" style={{opacity: slammed ? 1 : 0, transition: "opacity 0.4s 0.6s"}}>
           {currentRound.mechanic === "sporcle" && (
             <button className="edit-list-btn" onClick={() => setEditingList(true)}>✏ EDIT LIST</button> )}
-          <button className="begin-btn" onClick={beginRound}>START ROUND →</button>
+          <button className="begin-btn" onClick={()=>setCounting(true)}>START ROUND →</button>
         </div>
       </div>
+      {counting && <CountdownToRound roundName={currentRound?.name||''} onDone={()=>{setCounting(false);beginRound();}} />}
     </>
   );
 }
@@ -1819,35 +2187,111 @@ function Confetti() {
     </div>
   );
 }
-function EndScreen({ teams, scores, sortedTeams, winner, onPlayAgain, tc }) {
-  const [show, setShow] = useState(false);
+function RoundSummary({ currentRound, roundIdx, rounds, teams, scores, prevRoundScores, onContinue, tc }) {
+  const [banter, setBanter] = useState('');
+  const [visible, setVisible] = useState(false);
+  const sorted = [...teams].sort((a,b)=>(scores[b.id]||0)-(scores[a.id]||0));
+  const leader = sorted[0];
+
   useEffect(() => {
-    SFX.winner();
-    const t = setTimeout(() => setShow(true), 100);
-    return () => clearTimeout(t);
+    SFX.fanfare();
+    setTimeout(() => setVisible(true), 100);
+    // Generate banter via Claude
+    const pts = sorted.map(t=>`${t.name}: ${scores[t.id]||0}`).join(', ');
+    const gap = (scores[sorted[0]?.id]||0) - (scores[sorted[1]?.id]||0);
+    const prompt = `You are a witty, slightly snarky pub quiz host. After round ${roundIdx+1} of ${rounds.length} titled "${currentRound.name}", the scores are: ${pts}. ${gap===0?'It\'s a tie!':leader.name+' leads by '+gap+' points.'} Write ONE short, punchy host comment (max 12 words). Be funny. No quotes.`;
+    fetch('https://crimson-mode-5ecf.trussej.workers.dev/', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:60,messages:[{role:'user',content:prompt}]})
+    }).then(r=>r.json()).then(d=>{
+      const txt = d?.content?.[0]?.text || '';
+      setBanter(txt.replace(/^["']|["']$/g,''));
+    }).catch(()=>{});
+  }, []);
+
+  return (
+    <div className="game-body">
+      <div className="lb-screen">
+        <div className="lb-title">Round {roundIdx+1} Complete</div>
+        <div className="lb-round" style={{background:`linear-gradient(135deg,${tc(roundIdx).main},white)`,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>{currentRound.name}</div>
+        <div className="lb-banter">{banter || '…'}</div>
+        <div className="lb-rows">
+          {sorted.map((t, rank) => {
+            const i = teams.indexOf(t);
+            const c = tc(i);
+            const prev = prevRoundScores[t.id] || 0;
+            const curr = scores[t.id] || 0;
+            const gained = curr - prev;
+            const rankEmoji = rank===0?'🥇':rank===1?'🥈':rank===2?'🥉':`#${rank+1}`;
+            return (
+              <div key={t.id} className="lb-row"
+                style={{
+                  borderColor: rank===0 ? c.main+'80' : c.main+'30',
+                  background: rank===0 ? c.dim : 'rgba(255,255,255,0.02)',
+                  opacity: visible ? 1 : 0,
+                  transform: visible ? 'translateY(0)' : 'translateY(20px)',
+                  transition: `all 0.4s ease ${rank * 0.1}s`,
+                }}>
+                <div className="lb-rank" style={{color:c.main}}>{rankEmoji}</div>
+                <div className="lb-name" style={{color:c.main}}>{t.name}</div>
+                {gained > 0 && (
+                  <div className="lb-delta" style={{background:'rgba(74,222,128,0.12)',color:'#4ade80',border:'1px solid rgba(74,222,128,0.25)'}}>+{gained}</div>
+                )}
+                <div className="lb-pts" style={{color:c.main}}>{curr}</div>
+              </div>
+            );
+          })}
+        </div>
+        <button className="begin-btn" style={{background:'white',color:'#080810'}} onClick={onContinue}>
+          {roundIdx+1>=rounds.length ? 'See Final Results →' : 'Next Round →'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+function EndScreen({ teams, scores, sortedTeams, winner, onPlayAgain, tc }) {
+  const [phase, setPhase] = useState(0);
+  useEffect(() => {
+    setTimeout(() => { SFX.fanfare(); setPhase(1); }, 400);
+    setTimeout(() => { SFX.winner(); setPhase(2); }, 2000);
   }, []);
   const winnerIdx = teams.indexOf(winner);
+  const runnerUps = sortedTeams.slice(1);
   return (
     <>
-      {show && <Confetti />}
-      <div className="end-screen">
-        <div className="winner-lbl">🏆 Winner</div>
-        <div className="winner-name"
-          style={{ background: `linear-gradient(135deg,${tc(winnerIdx).main},white)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
-          {winner?.name}
-        </div>
-        <div className="winner-score">{scores[winner?.id] || 0} points</div>
-        <div className="final-scores">
-          {sortedTeams.map((t, i) => (
-            <div key={t.id} className="final-row"
-              style={{borderColor: tc(teams.indexOf(t)).main + "40", background: tc(teams.indexOf(t)).dim}}>
-              <div className="final-team" style={{color: tc(teams.indexOf(t)).main}}>
-                {i === 0 ? "🥇 " : i === 1 ? "🥈 " : "🥉 "}{t.name}
-              </div>
-              <div className="final-pts" style={{color: tc(teams.indexOf(t)).main}}>{scores[t.id] || 0}</div>
-            </div> ))}
-        </div>
-        <button className="play-again-btn" onClick={onPlayAgain}>PLAY AGAIN</button>
+      {phase >= 2 && <Confetti />}
+      <div className="end-screen" style={{gap:12}}>
+        {phase >= 1 && runnerUps.length > 0 && (
+          <div style={{display:'flex',gap:8,flexWrap:'wrap',justifyContent:'center',marginBottom:8,animation:'fadeIn 0.5s ease'}}>
+            {runnerUps.map((t,i) => {
+              const idx = teams.indexOf(t);
+              return (
+                <div key={t.id} style={{padding:'8px 18px',borderRadius:10,border:`1px solid ${tc(idx).main}40`,background:tc(idx).dim,display:'flex',gap:10,alignItems:'center'}}>
+                  <span style={{fontFamily:'var(--font-d)',fontSize:16,color:tc(idx).main}}>{i===0?'🥈':'🥉'}</span>
+                  <span style={{fontFamily:'var(--font-c)',fontSize:13,fontWeight:700,letterSpacing:2,textTransform:'uppercase',color:tc(idx).main}}>{t.name}</span>
+                  <span style={{fontFamily:'var(--font-d)',fontSize:18,color:tc(idx).main}}>{scores[t.id]||0}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {phase >= 2 && (
+          <>
+            <div className="winner-crown">🏆</div>
+            <div style={{fontFamily:'var(--font-c)',fontSize:11,letterSpacing:6,textTransform:'uppercase',color:'rgba(255,210,0,0.6)',marginBottom:4}}>Winner</div>
+            <div className="winner-name-big"
+              style={{background:`linear-gradient(135deg,${tc(winnerIdx).main},white)`,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>
+              {winner?.name}
+            </div>
+            <div className="winner-score">{scores[winner?.id]||0} points</div>
+          </>
+        )}
+        {phase >= 2 && (
+          <button className="play-again-btn" style={{marginTop:16}} onClick={onPlayAgain}>PLAY AGAIN</button>
+        )}
       </div>
     </>
   );
@@ -1857,6 +2301,8 @@ function PubQuiz() {
   const [screen, setScreen] = useState("setup");
   const [teams, setTeams] = useState([{ id: 1, name: "Team 1" }, { id: 2, name: "Team 2" }]);
   const [categories, setCategories] = useState(DEFAULT_CATS);
+  const [crowdAge, setCrowdAge] = useState('');
+  const [crowdVibe, setCrowdVibe] = useState('');
   const [scores, setScores] = useState({});
   const [rounds, setRounds] = useState([]);
   const [roundIdx, setRoundIdx] = useState(0);
@@ -1891,7 +2337,7 @@ function PubQuiz() {
   function updateTeam(id, val) { setTeams(t => t.map(x => x.id === id ? { ...x, name: val } : x)); }
   function addTeam() { if (teams.length >= 4) return; setTeams(t => [...t, { id: Date.now(), name: `Team ${t.length + 1}` }]); }
   function updateCat(id, f, v) { setCategories(c => c.map(x => x.id === id ? { ...x, [f]: v } : x)); }
-  function addCat() { setCategories(c => [...c, { id: nextCatId.current++, name: "", mechanic: "qa", count: 8 }]); }
+  function addCat() { setCategories(c => [...c, { id: nextCatId.current++, name: "", mechanic: "qa", count: 5 }]); }
 
   const RANDOM_SUGGESTIONS = [
     ["Pop Culture","Sports","History","Science","Geography"],
@@ -1903,7 +2349,7 @@ function PubQuiz() {
     ["NBA","NFL","Harry Potter","Disney","The 80s"],
     ["True Crime","The Solar System","Famous Scientists","Broadway Musicals","World Wars"],
   ];
-  const RANDOM_MECHANICS = ["qa","qa","tf","feud","sporcle"];
+  const RANDOM_MECHANICS = ["qa","qa","tf","feud","sporcle","top5","closest"];
   function randomizeCats() {
     const pool = RANDOM_SUGGESTIONS[Math.floor(Math.random()*RANDOM_SUGGESTIONS.length)];
     const shuffled = [...pool].sort(()=>Math.random()-0.5);
@@ -1911,11 +2357,18 @@ function PubQuiz() {
       id: nextCatId.current++,
       name,
       mechanic: RANDOM_MECHANICS[Math.floor(Math.random()*RANDOM_MECHANICS.length)],
-      count: 8,
+      count: 5,
     }));
     setCategories(newCats);
   }
   function removeCat(id) { setCategories(c => c.filter(x => x.id !== id)); }
+
+  function crowdContext() {
+    const parts = [];
+    if (crowdAge) parts.push(crowdAge);
+    if (crowdVibe) parts.push(crowdVibe);
+    return parts.length ? `Crowd: ${parts.join(', ')}.` : '';
+  }
 
   async function startGame() {
     if (teams.length < 2) { setErr("Add at least 2 teams."); return; }
@@ -1933,15 +2386,17 @@ function PubQuiz() {
         if (cat.mechanic === "qa") {
           const seed = Math.random().toString(36).slice(2,8);
           const json = await callClaude(
-            `[seed:${seed}] Generate exactly ${cat.count} trivia questions about: "${cat.name}".
+            `[seed:${seed}] Generate exactly ${cat.count} trivia questions about: "${cat.name}". ${crowdContext()}
 
 Rules:
-- Write every question in plain, conversational language — no stiff quiz-show phrasing
-- Vary difficulty: ~1/3 easy, ~1/3 medium, ~1/3 harder — but never obscure
+- Write every question in plain, conversational language — like a fun bar trivia host would ask it
+- Tailor difficulty and references to the crowd context if provided
+- Vary difficulty: ~1/3 easy (crowd will know), ~1/3 medium (half the room), ~1/3 surprising (feels familiar but trips people up)
 - Avoid the single most obvious questions for this topic
 - Answers should be short: 1-5 words max
 - No two questions should feel similar in structure or subtopic
-- Do not start questions with "Which" — use natural phrasing like "Who", "What", "In what year", "How many", "Where"
+- Do not start questions with "Which" — use "Who", "What", "In what year", "How many", "Where"
+- Add a little personality to the phrasing — it should feel like a real host wrote it
 
 Respond ONLY with a valid JSON array, no markdown:
 [{ "question": "...", "answer": "..." }]`
@@ -1950,15 +2405,15 @@ Respond ONLY with a valid JSON array, no markdown:
         } else if (cat.mechanic === "tf") {
           const seed = Math.random().toString(36).slice(2,8);
           const json = await callClaude(
-            `[seed:${seed}] Generate exactly ${cat.count} true or false statements about: "${cat.name}".
+            `[seed:${seed}] Generate exactly ${cat.count} true or false statements about: "${cat.name}". ${crowdContext()}
 
 Rules:
-- Write statements as simple, direct sentences — not trivia-question phrasing
+- Write as punchy, confident statements — things that sound believable whether they are or not
 - Mix true and false roughly 50/50
-- Include some that feel obviously true but are actually false (and vice versa)
-- Explanations should be 1-2 sentences, genuinely interesting, not just restating the answer
-- Vary difficulty — some should be easy, some should surprise people
-- Never start with "It is true that..." or "Contrary to..." — just state the fact directly
+- The best ones: things most people are confident about but are wrong
+- Explanations: 1-2 sentences, genuinely interesting or surprising, not just "that's false because..."
+- Calibrate to the crowd context if provided
+- Never start with "It is true that..." — just state the fact directly
 
 Respond ONLY with a valid JSON array, no markdown:
 [{ "statement": "...", "answer": true, "explanation": "..." }]`
@@ -1967,7 +2422,8 @@ Respond ONLY with a valid JSON array, no markdown:
         } else if (cat.mechanic === "feud") {
           const seed = Math.random().toString(36).slice(2,8);
           const json = await callClaude(
-            `[seed:${seed}] Generate exactly ${cat.count || 4} Family Feud style survey questions about: "${cat.name}". Rules: avoid the most obvious questions for this topic, vary the style (name a thing, name a place, name something you'd do, etc), make answers feel genuinely survey-like. Keep answers short (1-4 words), ranked most-to-least common.
+            `[seed:${seed}] Generate exactly ${cat.count || 4} Family Feud style survey questions about: "${cat.name}". ${crowdContext()}
+Rules: vary the style — name a thing, a place, something you'd do, something you'd say. Make answers feel like real survey responses from real people. Keep answers short (1-4 words), ranked most-to-least common. Calibrate relatability to crowd context.
 Respond ONLY with a valid JSON array, no markdown:
 [{ "question": "Name something you find in a fridge", "answers": ["Milk","Leftovers","Juice","Cheese","Vegetables","Condiments"] }]`
           );
@@ -1991,6 +2447,30 @@ Respond ONLY with a valid JSON array, no markdown:
           );
           built.push({ ...cat, questions: JSON.parse(json) });
 
+        } else if (cat.mechanic === "top5") {
+          const seed = Math.random().toString(36).slice(2,8);
+          const json = await callClaude(
+            `[seed:${seed}] Generate exactly ${cat.count || 5} Top 5 survey questions about: "${cat.name}". ${crowdContext()}
+Each question should have exactly 5 answers ranked #1 to #5, like a Family Feud survey but lighter and faster.
+Questions should be fun and crowd-pleasing — things like "Top 5 things people do on a Friday night" or "Top 5 most popular pizza toppings".
+Keep answers short (1-4 words), ranked most-to-least popular.
+Respond ONLY with a valid JSON array, no markdown:
+[{ "question": "Top 5 things people do on a Friday night", "answers": ["Watch TV","Go out drinking","Order takeout","Go to the gym","Play video games"] }]`
+          );
+          built.push({ ...cat, questions: JSON.parse(json) });
+
+        } else if (cat.mechanic === "closest") {
+          const seed = Math.random().toString(36).slice(2,8);
+          const json = await callClaude(
+            `[seed:${seed}] Generate exactly ${cat.count || 5} numerical trivia questions about: "${cat.name}". ${crowdContext()}
+Each question has a numerical answer. Teams guess the number — closest wins.
+Questions should have interesting, memorable answers people can reason about (not obscure stats).
+Examples: "How many bones are in the human body?", "In what year was the Eiffel Tower completed?", "How many episodes of Friends were made?"
+Calibrate to crowd context if provided.
+Respond ONLY with a valid JSON array, no markdown:
+[{ "question": "How many bones are in the human body?", "answer": 206, "hint": "More than you think" }]`
+          );
+          built.push({ ...cat, questions: JSON.parse(json) });
         }
       } catch (e) {
         setErr(`Failed: "${cat.name}" — ${e.message}`); setScreen("setup"); return;
@@ -2005,6 +2485,8 @@ Respond ONLY with a valid JSON array, no markdown:
     if (currentRound?.mechanic === "sporcle") { setScreen("sporcle"); }
     else if (currentRound?.mechanic === "tf") { setQIdx(0); setRevealed(false); setScreen("tf"); }
     else if (currentRound?.mechanic === "feud") { setQIdx(0); setScreen("feud"); }
+    else if (currentRound?.mechanic === "top5") { setQIdx(0); setScreen("top5"); }
+    else if (currentRound?.mechanic === "closest") { setQIdx(0); setRevealed(false); setScreen("closest"); }
     else { setQIdx(0); setRevealed(false); setScreen("game"); }
   }
 
@@ -2063,7 +2545,7 @@ Respond ONLY with a valid JSON array, no markdown:
   }
 
   function advanceRound() {
-    // capture scores at end of this round for summary
+    setPrevRoundScores({...scores});
     setRoundEndScores({...scores});
     setScreen("roundsummary");
   }
@@ -2076,7 +2558,7 @@ Respond ONLY with a valid JSON array, no markdown:
 
   const sortedTeams = [...teams].sort((a, b) => (scores[b.id] || 0) - (scores[a.id] || 0));
   const winner = sortedTeams[0];
-  const showFsBtn = ["intro", "game", "sporcle", "tf", "feud", "end", "roundsummary"].includes(screen);
+  const showFsBtn = ["intro", "game", "sporcle", "tf", "feud", "end", "roundsummary", "top5", "closest"].includes(screen);
 
   // ── Host sheet detection ──────────────────────────────────
   const isHostSheet = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('host') === '1';
@@ -2093,7 +2575,7 @@ Respond ONLY with a valid JSON array, no markdown:
     return () => document.removeEventListener('click', handleTrayEnd);
   }, []);
 
-  const gameScreens = ["intro","game","sporcle","tf","feud","roundsummary"];
+  const gameScreens = ["intro","game","sporcle","tf","feud","roundsummary","top5","closest"];
   const showHeader = gameScreens.includes(screen);
 
   return (
@@ -2144,6 +2626,18 @@ Respond ONLY with a valid JSON array, no markdown:
                 {teams.length < 4 && <button className="add-team-btn" onClick={addTeam}>+ Add Team</button>}
               </div>
               <hr className="divider" />
+              <div className="sec-label">Who's Playing?</div>
+              <div className="crowd-row">
+                {['20s','30s','Mixed ages','Families'].map(a=>(
+                  <button key={a} className={`crowd-chip${crowdAge===a?' selected':''}`} onClick={()=>setCrowdAge(v=>v===a?'':a)}>{a}</button>
+                ))}
+              </div>
+              <div className="crowd-row" style={{marginBottom:8}}>
+                {['Sports fans','Pop culture lovers','Movie buffs','Casual crowd','Competitive'].map(v=>(
+                  <button key={v} className={`crowd-chip${crowdVibe===v?' selected':''}`} onClick={()=>setCrowdVibe(vv=>vv===v?'':v)}>{v}</button>
+                ))}
+              </div>
+              <hr className="divider" />
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
                 <div className="sec-label" style={{marginBottom:0}}>Categories & Rounds</div>
                 <button onClick={randomizeCats} style={{background:"transparent",border:"1px solid rgba(255,255,255,0.12)",borderRadius:6,padding:"4px 10px",color:"var(--muted)",fontFamily:"var(--font-c)",fontSize:11,letterSpacing:2,textTransform:"uppercase",cursor:"pointer"}}>🎲 Randomize</button>
@@ -2153,7 +2647,7 @@ Respond ONLY with a valid JSON array, no markdown:
                   <div key={cat.id} className="cat-row">
                     <input className="cat-input" placeholder={`Category name (e.g. "NBA Teams")`} value={cat.name} onChange={e => updateCat(cat.id, "name", e.target.value)} />
                     <select className="cat-select" value={cat.mechanic} onChange={e => updateCat(cat.id, "mechanic", e.target.value)}>
-                      <option value="qa">Q & A</option><option value="sporcle">Sporcle</option><option value="tf">True or False</option><option value="feud">Family Feud</option>
+                      <option value="qa">Q & A</option><option value="tf">True or False</option><option value="feud">Family Feud</option><option value="sporcle">Sporcle</option><option value="top5">Top 5</option><option value="closest">Closest Wins</option>
                     </select>
                     <input className="cat-num" type="number" min={1} max={50} value={cat.count ?? ''} onChange={e=>{const v=e.target.value;updateCat(cat.id,"count",v===''?'':Math.max(1,parseInt(v)||1));}} onBlur={e=>{if(e.target.value==='')updateCat(cat.id,"count",1);}} />
                     <button className="cat-del" onClick={() => removeCat(cat.id)}>×</button>
@@ -2180,29 +2674,16 @@ Respond ONLY with a valid JSON array, no markdown:
 
         {/* ROUND SUMMARY */}
         {screen === "roundsummary" && currentRound && (
-          <div className="game-body">
-            <div style={{textAlign:"center",zIndex:1,position:"relative",width:"100%",maxWidth:560}}>
-              <div style={{fontFamily:"var(--font-c)",fontSize:11,letterSpacing:4,textTransform:"uppercase",color:"var(--muted)",marginBottom:8}}>Round {roundIdx+1} Complete</div>
-              <div style={{fontFamily:"var(--font-d)",fontSize:"clamp(36px,6vw,52px)",letterSpacing:2,textTransform:"uppercase",marginBottom:6,background:`linear-gradient(135deg,${tc(roundIdx).main},white)`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text"}}>{currentRound.name}</div>
-              <div style={{display:"flex",flexDirection:"column",gap:8,margin:"24px 0",width:"100%"}}>
-                {[...teams].sort((a,b)=>(scores[b.id]||0)-(scores[a.id]||0)).map((t,rank)=>{
-                  const i=teams.indexOf(t);
-                  return(
-                    <div key={t.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 20px",borderRadius:10,border:`1px solid ${tc(i).main}40`,background:tc(i).dim}}>
-                      <div style={{display:"flex",alignItems:"center",gap:10}}>
-                        <span style={{fontFamily:"var(--font-d)",fontSize:20,color:tc(i).main,minWidth:28}}>{rank===0?"🥇":rank===1?"🥈":rank===2?"🥉":"#"+(rank+1)}</span>
-                        <span style={{fontFamily:"var(--font-c)",fontSize:16,fontWeight:700,letterSpacing:1,color:tc(i).main,textTransform:"uppercase"}}>{t.name}</span>
-                      </div>
-                      <span style={{fontFamily:"var(--font-d)",fontSize:26,color:tc(i).main}}>{scores[t.id]||0} pts</span>
-                    </div>
-                  );
-                })}
-              </div>
-              <button className="begin-btn" style={{background:"white",color:"#080810"}} onClick={continueFromSummary}>
-                {roundIdx+1>=rounds.length?"See Final Results →":"Next Round →"}
-              </button>
-            </div>
-          </div>
+          <RoundSummary
+            currentRound={currentRound}
+            roundIdx={roundIdx}
+            rounds={rounds}
+            teams={teams}
+            scores={scores}
+            prevRoundScores={prevRoundScores}
+            onContinue={continueFromSummary}
+            tc={tc}
+          />
         )}
 
         {/* INTRO */}
@@ -2264,6 +2745,26 @@ Respond ONLY with a valid JSON array, no markdown:
               onReroll={liveRerollFeudQ}
             />
           </div>
+        )}
+
+        {/* TOP 5 */}
+        {screen === "top5" && currentRound && (
+          <Top5Round
+            round={currentRound} qIdx={qIdx} setQIdx={setQIdx}
+            teams={teams} scores={scores}
+            onAdjust={adjustPoint} onSetScore={setScore}
+            onFinish={advanceRound} tc={tc}
+          />
+        )}
+
+        {/* CLOSEST WINS */}
+        {screen === "closest" && currentRound && (
+          <ClosestWinsRound
+            round={currentRound} qIdx={qIdx} setQIdx={setQIdx}
+            teams={teams} scores={scores}
+            onAdjust={adjustPoint} onSetScore={setScore}
+            onFinish={advanceRound} tc={tc}
+          />
         )}
 
         {/* END */}
