@@ -229,34 +229,32 @@ async function generateSingleQuestion(mechanic, catName) {
   const seed = Math.random().toString(36).slice(2,8);
   let prompt;
   if (mechanic === 'qa') {
-    prompt = `[seed:${seed}] Generate exactly 1 creative trivia question about: "${catName}". Avoid obvious questions. Respond ONLY with a JSON object, no markdown, no extra text: {"question":"...","answer":"..."}`;
+    prompt = '[seed:'+seed+'] Generate exactly 1 trivia question about: "'+catName+'". Conversational phrasing, 1-5 word answer. Respond ONLY with a JSON object, no markdown: {"question":"...","answer":"..."}';
   } else if (mechanic === 'tf') {
-    prompt = `[seed:${seed}] Generate exactly 1 true or false statement about: "${catName}". Make it non-obvious. Respond ONLY with a JSON object, no markdown, no extra text: {"statement":"...","answer":true,"explanation":"..."}`;
+    prompt = '[seed:'+seed+'] Generate exactly 1 true or false statement about: "'+catName+'". Punchy and surprising. Respond ONLY with a JSON object, no markdown: {"statement":"...","answer":true,"explanation":"..."}';
   } else if (mechanic === 'feud') {
-    prompt = `[seed:${seed}] Generate exactly 1 Family Feud style survey question about: "${catName}". 6-8 answers ranked most-to-least common, 1-4 words each. Respond ONLY with a JSON object, no markdown, no extra text: {"question":"Name something...","answers":["...","..."]}`;
+    prompt = '[seed:'+seed+'] Generate exactly 1 Family Feud survey question about: "'+catName+'". 6 answers ranked most to least common. Respond ONLY with a JSON object, no markdown: {"question":"...","answers":["..."]}';
+  } else if (mechanic === 'sporcle') {
+    prompt = '[seed:'+seed+'] Generate exactly 1 Sporcle list question about: "'+catName+'". Natural answer count for the set. Respond ONLY with a JSON object, no markdown: {"question":"...","answers":["..."]}';
+  } else if (mechanic === 'top5') {
+    prompt = '[seed:'+seed+'] Generate exactly 1 Top 5 survey question about: "'+catName+'". Exactly 5 answers ranked most to least popular. Respond ONLY with a JSON object, no markdown: {"question":"...","answers":["..."]}';
+  } else if (mechanic === 'closest') {
+    prompt = '[seed:'+seed+'] Generate exactly 1 numerical trivia question about: "'+catName+'". Interesting memorable number. Respond ONLY with a JSON object, no markdown: {"question":"...","answer":206,"hint":"..."}';
+  } else {
+    prompt = '[seed:'+seed+'] Generate exactly 1 trivia question about: "'+catName+'". Respond ONLY with a JSON object: {"question":"...","answer":"..."}';
   }
-  // use fetch directly — callClaude only handles arrays, we need a single object
-  const res = await fetch(WORKER_URL, {
+  const text = await fetch('https://crimson-mode-5ecf.trussej.workers.dev/', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-5',
-      max_tokens: 1000,
-      messages: [{ role: 'user', content: prompt }]
-    })
-  });
-  if (!res.ok) throw new Error('API error: ' + res.status);
-  const data = await res.json();
-  if (data.error) throw new Error(data.error.message);
-  const raw = data.content.map(b => b.text || '').join('').trim();
-  // strip markdown fences
-  const clean = raw.replace(/^```json\s*/i,'').replace(/^```\s*/,'').replace(/\s*```$/,'').trim();
-  // find the JSON object in the response
-  const objMatch = clean.match(/\{[\s\S]*\}/);
-  if (!objMatch) throw new Error('No JSON object in response: ' + clean.slice(0,100));
-  const result = JSON.parse(objMatch[0]);
-  console.log('generateSingleQuestion result:', JSON.stringify(result));
-  return result;
+    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 500, messages: [{ role: 'user', content: prompt }] })
+  }).then(r => r.json()).then(d => d?.content?.[0]?.text || '');
+  const clean = text.replace(/```json|```/g, '').trim();
+  // Handle both object {} and array [{...}] responses
+  if (clean.startsWith('[')) {
+    const arr = JSON.parse(clean);
+    return arr[0];
+  }
+  return JSON.parse(clean);
 }
 const DEFAULT_CATS = [
   { id: 1, name: "Pop Culture", mechanic: "qa", count: 5 },
@@ -685,9 +683,6 @@ body{background:var(--bg);font-family:var(--font-ui);color:var(--text);}
 
 /* ── CROWD CONTEXT SETUP ── */
 .crowd-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;}
-.crowd-chip{padding:8px 16px;border-radius:100px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:var(--muted);font-family:var(--font-c);font-size:12px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all 0.15s;}
-.crowd-chip:hover{border-color:rgba(255,255,255,0.3);color:var(--text);}
-.crowd-chip.selected{border-color:#FF3D6B;background:rgba(255,61,107,0.12);color:#FF3D6B;}
 
 /* ── COUNTDOWN ── */
 .countdown-overlay{position:fixed;inset:0;background:rgba(6,6,10,0.97);z-index:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;}
@@ -761,11 +756,17 @@ function buildHostHtml(rounds) {
         <div class="q"><div class="qn">Q${i+1}</div>
         <div class="qt">${q.question}</div>
         <div class="chips">${(q.answers||[]).map((a,ai)=>`<span class="chip">#${ai+1} ${a}</span>`).join('')}</div></div>`).join('');
-    } else if (r.mechanic === 'sporcle') {
+    } else if (r.mechanic === 'sporcle' || r.mechanic === 'top5') {
       qs = (r.questions||[]).map((q,i) => `
         <div class="q"><div class="qn">Q${i+1}</div>
         <div class="qt">${q.question}</div>
-        <div class="chips">${(q.answers||[]).map(a=>`<span class="chip">${a}</span>`).join('')}</div></div>`).join('');
+        <div class="chips">${(q.answers||[]).map((a,ai)=>`<span class="chip">${r.mechanic==='top5'?'#'+(ai+1)+' ':''}${a}</span>`).join('')}</div></div>`).join('');
+    } else if (r.mechanic === 'closest') {
+      qs = (r.questions||[]).map((q,i) => `
+        <div class="q"><div class="qn">Q${i+1}</div>
+        <div class="qt">${q.question}</div>
+        <div class="ans">${q.answer}</div>
+        ${q.hint?`<div class="exp">Hint: ${q.hint}</div>`:''}</div>`).join('');
     }
     return `<div class="round"><div class="rh" style="border-color:${col}40"><div class="rb" style="background:${col}"></div><div><div class="rn" style="color:${col}">${r.name}</div><div class="rm">${mechLabel}</div></div></div>${qs}</div>`;
   });
@@ -1592,7 +1593,7 @@ function Top5Round({round, qIdx, setQIdx, teams, scores, onAdjust, onSetScore, o
     setTurnIdx(t => t + 1);
   }
 
-  const col = tc(round.questions ? 0 : 0);
+  const col = tc(0);
   const bc = lastResult === 'correct' ? '#4ade80' : lastResult === 'wrong' ? '#f87171' : 'rgba(255,255,255,0.15)';
 
   return (
@@ -2301,8 +2302,7 @@ function PubQuiz() {
   const [screen, setScreen] = useState("setup");
   const [teams, setTeams] = useState([{ id: 1, name: "Team 1" }, { id: 2, name: "Team 2" }]);
   const [categories, setCategories] = useState(DEFAULT_CATS);
-  const [crowdAge, setCrowdAge] = useState('');
-  const [crowdVibe, setCrowdVibe] = useState('');
+  const [crowdNote, setCrowdNote] = useState('');
   const [scores, setScores] = useState({});
   const [rounds, setRounds] = useState([]);
   const [roundIdx, setRoundIdx] = useState(0);
@@ -2364,10 +2364,7 @@ function PubQuiz() {
   function removeCat(id) { setCategories(c => c.filter(x => x.id !== id)); }
 
   function crowdContext() {
-    const parts = [];
-    if (crowdAge) parts.push(crowdAge);
-    if (crowdVibe) parts.push(crowdVibe);
-    return parts.length ? `Crowd: ${parts.join(', ')}.` : '';
+    return crowdNote.trim() ? 'Crowd context: '+crowdNote.trim()+'.' : '';
   }
 
   async function startGame() {
@@ -2381,7 +2378,7 @@ function PubQuiz() {
     const built = [];
     for (let i = 0; i < categories.length; i++) {
       const cat = categories[i];
-      setGenStatus(`Generating "${cat.name}" (${i + 1}/${categories.length})…`);
+      setGenStatus('Generating "'+cat.name+'" ('+( i + 1)+'/'+categories.length+')...');
       try {
         if (cat.mechanic === "qa") {
           const seed = Math.random().toString(36).slice(2,8);
@@ -2423,7 +2420,7 @@ function PubQuiz() {
           built.push({ ...cat, questions: JSON.parse(json) });
         }
       } catch (e) {
-        setErr(`Failed: "${cat.name}" — ${e.message}`); setScreen("setup"); return;
+        setErr('Failed: "' + cat.name + '" - ' + e.message); setScreen("setup"); return;
       }
     }
     setRounds(built); setRoundIdx(0); setQIdx(0); setRevealed(false); setScreen("intro");
@@ -2576,17 +2573,14 @@ function PubQuiz() {
                 {teams.length < 4 && <button className="add-team-btn" onClick={addTeam}>+ Add Team</button>}
               </div>
               <hr className="divider" />
-              <div className="sec-label">Who's Playing?</div>
-              <div className="crowd-row">
-                {['20s','30s','Mixed ages','Families'].map(a=>(
-                  <button key={a} className={`crowd-chip${crowdAge===a?' selected':''}`} onClick={()=>setCrowdAge(v=>v===a?'':a)}>{a}</button>
-                ))}
-              </div>
-              <div className="crowd-row" style={{marginBottom:8}}>
-                {['Sports fans','Pop culture lovers','Movie buffs','Casual crowd','Competitive'].map(v=>(
-                  <button key={v} className={`crowd-chip${crowdVibe===v?' selected':''}`} onClick={()=>setCrowdVibe(vv=>vv===v?'':v)}>{v}</button>
-                ))}
-              </div>
+              <div className="sec-label" style={{marginBottom:6}}>Who's Playing? <span style={{fontFamily:'var(--font-c)',fontSize:10,letterSpacing:1,color:'var(--muted)',textTransform:'none',fontWeight:'normal'}}>— optional, helps tailor questions</span></div>
+              <input
+                className="cat-input"
+                style={{marginBottom:20,width:'100%'}}
+                placeholder='e.g. "college friends in their 20s, big sports fans" or "family game night, all ages"'
+                value={crowdNote}
+                onChange={e=>setCrowdNote(e.target.value)}
+              />
               <hr className="divider" />
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
                 <div className="sec-label" style={{marginBottom:0}}>Categories & Rounds</div>
