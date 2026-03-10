@@ -870,10 +870,11 @@ function QRCode({ url }) {
     if (!canvasRef.current || !url) return;
     try {
       const {matrix, size} = QR.encode(url);
-      const CELL = Math.floor(180 / (size + 8));
-      const QUIET = Math.floor((180 - CELL * size) / 2);
+      const CANVAS = 240;
+      const CELL = Math.max(2, Math.floor((CANVAS - 16) / (size + 8)));
+      const QUIET = Math.floor((CANVAS - CELL * size) / 2);
       const canvas = canvasRef.current;
-      canvas.width = canvas.height = 180;
+      canvas.width = canvas.height = CANVAS;
       const ctx = canvas.getContext('2d');
       ctx.fillStyle = '#fff';
       ctx.fillRect(0, 0, 180, 180);
@@ -886,7 +887,7 @@ function QRCode({ url }) {
   }, [url]);
   return (
     <div className="qr-frame">
-      <canvas ref={canvasRef} width={180} height={180} style={{display:'block',borderRadius:4}}/>
+      <canvas ref={canvasRef} width={240} height={240} style={{display:'block',borderRadius:4}}/>
     </div>
   );
 }
@@ -1137,9 +1138,22 @@ function TrueFalseRound({currentRound,qIdx,roundIdx,teams,scores,revealed,setRev
         ) : (
           <div className="dock-post">
             <div className="dock-answer-row dock-answer-tf">
-              <span style={{color:answerIsTrue?'#4ade80':'#f87171',fontSize:'clamp(18px,2.5vw,28px)'}}>{answerIsTrue?'✓ TRUE':'✗ FALSE'}</span>
-              {q?.explanation && <span style={{fontFamily:'var(--font-c)',fontSize:13,color:'var(--muted)',letterSpacing:0.5,flex:1,marginLeft:12}}>{q.explanation}</span>}
+              <span style={{color:answerIsTrue?'#4ade80':'#f87171',fontSize:'clamp(18px,2.5vw,28px)',flexShrink:0}}>{answerIsTrue?'✓ TRUE':'✗ FALSE'}</span>
             </div>
+            {q?.explanation && (
+              <div style={{
+                padding:'12px 18px',
+                background:'rgba(255,255,255,0.04)',
+                border:'1px solid rgba(255,255,255,0.08)',
+                borderRadius:10,
+                fontFamily:'var(--font-c)',
+                fontSize:'clamp(13px,1.8vw,17px)',
+                color:'rgba(240,238,232,0.7)',
+                letterSpacing:0.5,
+                lineHeight:1.5,
+                textAlign:'center',
+              }}>{q.explanation}</div>
+            )}
             <div className="dock-pts-row">
               {teams.map((t,i)=>{
                 const c=tc(i);
@@ -1580,10 +1594,10 @@ function FamilyFeud({round,qIdx,setQIdx,teams,scores,onAdjust,onSetScore,onFinis
 
       {/* Decision phase — play or pass */}
       {phase==='decision'&&(
-        <div style={{background:'var(--surface)',border:`2px solid ${tc(originalPlayerIdx).main}`,borderRadius:14,padding:'22px 26px',textAlign:'center'}}>
-          <div style={{fontFamily:'var(--font-c)',fontSize:11,letterSpacing:3,textTransform:'uppercase',color:'var(--muted)',marginBottom:6}}>Your turn</div>
-          <div style={{fontFamily:'var(--font-d)',fontSize:28,letterSpacing:2,color:tc(originalPlayerIdx).main,marginBottom:18,textTransform:'uppercase'}}>{teams[originalPlayerIdx]?.name}</div>
-          <div style={{fontFamily:'var(--font-c)',fontSize:13,letterSpacing:1,color:'var(--muted)',marginBottom:22}}>Do you want to play this question or pass to the next team?</div>
+        <div style={{background:'var(--surface)',border:`2px solid ${tc(originalPlayerIdx).main}`,borderRadius:14,padding:'32px 26px',textAlign:'center'}}>
+          <div style={{fontFamily:'var(--font-c)',fontSize:11,letterSpacing:3,textTransform:'uppercase',color:'var(--muted)',marginBottom:10}}>Your turn</div>
+          <div style={{fontFamily:'var(--font-d)',fontSize:28,letterSpacing:2,color:tc(originalPlayerIdx).main,marginBottom:10,textTransform:'uppercase'}}>{teams[originalPlayerIdx]?.name}</div>
+          <div style={{fontFamily:'var(--font-c)',fontSize:13,letterSpacing:1,color:'var(--muted)',marginBottom:28}}>Do you want to play this question or pass to the next team?</div>
           <div style={{display:'flex',gap:12,justifyContent:'center',flexWrap:'wrap'}}>
             <button onClick={handlePlay}
               style={{padding:'14px 36px',background:tc(originalPlayerIdx).main,border:'none',borderRadius:10,fontFamily:'var(--font-d)',fontSize:18,letterSpacing:3,color:'#080810',cursor:'pointer'}}>
@@ -1649,11 +1663,11 @@ function FamilyFeud({round,qIdx,setQIdx,teams,scores,onAdjust,onSetScore,onFinis
               {rem.map((a,i)=><span key={i} style={{padding:'4px 12px',borderRadius:100,background:'rgba(248,113,113,0.1)',border:'1px solid rgba(248,113,113,0.25)',color:'#f87171',fontFamily:'var(--font-c)',fontSize:13}}>{a}</span>)}
             </div>
           )}
-          <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap"}}>
+          <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap",marginTop:4}}>
             {onReroll&&(
-              <button className="ctrl-btn reroll" onClick={handleReroll} disabled={rerolling}>{rerolling?'…':'↺ Reset Q'}</button>
+              <button className="dock-reroll-btn" onClick={handleReroll} disabled={rerolling}>{rerolling?'…':'↺ Reset Q'}</button>
             )}
-            <button className="ctrl-btn next" onClick={()=>qIdx+1<localQuestions.length?setQIdx(q=>q+1):onFinish()}>
+            <button className="dock-next-btn" style={{flex:'0 0 auto',padding:'13px 32px'}} onClick={()=>qIdx+1<localQuestions.length?setQIdx(q=>q+1):onFinish()}>
               {qIdx+1<localQuestions.length?'Next Question →':'End Round →'}
             </button>
           </div>
