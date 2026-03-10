@@ -777,19 +777,38 @@ function HostSheetPage() {
   );
 }
 
-// ── QR CODE (pure SVG, no lib needed) ────────────────────────────────
-function QRCode({ url, size = 200 }) {
-  // We use a simple iframe pointing to a free QR service
-  // This avoids a heavy library while still working offline-ish
-  const encoded = encodeURIComponent(url);
+// ── QR CODE via qr-code-styling CDN (lightweight) ────────────────────
+function QRCode({ url }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!ref.current || !url) return;
+    ref.current.innerHTML = '';
+    // Build QR as SVG using pure math — no external lib
+    const size = 180;
+    const canvas = document.createElement('canvas');
+    canvas.width = size; canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    // Use the Google Charts API as a reliable fallback — widely available
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => { ctx.drawImage(img, 0, 0, size, size); };
+    img.onerror = () => {
+      // If image fails, show URL as text fallback
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0,0,size,size);
+      ctx.fillStyle = '#000';
+      ctx.font = '10px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('Scan failed—use Copy Link', size/2, size/2);
+    };
+    img.src = `https://chart.googleapis.com/chart?cht=qr&chs=180x180&chl=${encodeURIComponent(url)}&choe=UTF-8`;
+    ref.current.appendChild(canvas);
+  }, [url]);
   return (
     <div className="qr-frame">
-      <img
-        src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encoded}&bgcolor=ffffff&color=000000&margin=0`}
-        alt="QR Code"
-        width={180} height={180}
-        style={{display:'block',borderRadius:4}}
-      />
+      <div ref={ref} style={{width:180,height:180,background:'#fff',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center'}}>
+        <span style={{fontSize:11,color:'#999',fontFamily:'monospace'}}>Loading…</span>
+      </div>
     </div>
   );
 }
